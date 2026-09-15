@@ -1,56 +1,72 @@
-# LifeOS — Personal Productivity Dashboard
+# OneDesk — Desktop Productivity App (Tkinter)
 
-A full-stack-style productivity dashboard combining notes, tasks, a calendar, and analytics into one cohesive app. Built with React, Vite, Tailwind CSS, and plain JavaScript. All data lives in the browser via `localStorage` — there's no backend to run.
+A full-featured Python desktop application built with **Tkinter** — a personal productivity dashboard combining notes, tasks, a calendar, and analytics into one sleek, dark-mode native app. All data is stored locally in `~/.onedesk_store.json` — no backend, no internet required.
 
 ## Features
 
-- **Auth UI** — signup/login backed by localStorage, profile settings, logout
-- **Dashboard** — greeting, stat cards, today's schedule, recent notes, pending tasks
-- **Notes** — create/edit/delete/pin, category filters, search, color labels, markdown-style text, export to `.txt`
-- **Tasks** — list view and drag-and-drop kanban board, priority, due dates, category, progress bar
-- **Calendar** — month, week, and day views; task deadlines appear automatically alongside events
-- **Analytics** — bar chart, pie chart, and progress bars via Recharts
-- **Settings** — light/dark theme, notification toggle, JSON backup export/import, clear-all-data
-- **Global search** — searches notes, tasks, and events at once from the navbar
-- **Keyboard shortcuts** — press `g` then a letter (`d` dashboard, `n` notes, `t` tasks, `c` calendar, `a` analytics, `s` settings)
-- Responsive layout with a collapsible mobile sidebar, empty states, and light/dark glassmorphism styling throughout
+- **Auth** — Login, signup, and 1-click demo account (instant sign-in as Alex Rivera)
+- **Dashboard** — Greeting banner, KPI stat cards, progress bar, today's schedule, pending tasks, and recent notes
+- **Notes** — Grid view with search, category filters, pin/unpin, 5 color labels, tags, edit, delete, export to `.txt`
+- **Tasks** — List view + Kanban board (Todo / In Progress / Completed), filter pills, inline quick-add, detailed modal
+- **Calendar** — Month, Week, and Day views with event and task-deadline markers; add/edit/delete events
+- **Analytics** — Embedded Matplotlib charts: weekly task velocity bar, priority pie, status breakdown bars, notes by category
+- **Settings** — Profile editing, Dark/Light theme switcher, JSON backup export & import, clear all data, sign out
+- **Global search** — Live search from the top navbar
+- **Data seeding** — Fresh install seeds sample notes, tasks, and events so the app isn't empty on first launch
 
-## Tech stack
+## Tech Stack
 
-- React 19 + Vite
-- Tailwind CSS v4 (via `@tailwindcss/vite`)
-- react-router-dom for routing
-- recharts for charts
-- lucide-react for icons
+- Python 3.13 + Tkinter (stdlib)
+- `matplotlib` — embedded charts via TkAgg backend
+- `Pillow` — image support (available for future use)
 
-## Getting started
+## Getting Started
 
+### 1. Install dependencies
 ```bash
-npm install
-npm run dev
+pip install -r requirements.txt
 ```
 
-Then open the printed local URL (typically `http://localhost:5173`). Create an account on the signup screen — everything is stored locally in your browser, so there's nothing to configure.
-
-To build for production:
-
+### 2. Run the app
 ```bash
-npm run build
-npm run preview   # optional: preview the production build locally
+python main.py
 ```
 
-## Project structure
+The window opens at 1280×800. Use **Instant Sign-in** on the login screen for a one-click demo.
+
+## Project Structure
 
 ```
-src/
-  components/     Sidebar, Navbar, Card, Modal, TaskCard, NoteCard, EmptyState, AppLayout, ProtectedRoute
-  pages/          Dashboard, Notes, Tasks, Calendar, Analytics, Settings, Login, Signup
-  context/        AuthContext, ThemeContext, DataContext
-  utils/          storage.js (localStorage helpers), sampleData.js (first-run demo content)
+onedesk-tkinter/
+├── main.py                     # Root Tk window & view router
+├── requirements.txt
+└── onedesk/
+    ├── config.py               # Design tokens (colours, fonts, sizes)
+    ├── storage.py              # JSON persistence (~/.onedesk_store.json)
+    ├── auth.py                 # User session, demo login, signup
+    ├── state.py                # Reactive data store (pub/sub) for Notes/Tasks/Events
+    ├── components/
+    │   ├── sidebar.py          # Left nav sidebar with active pill
+    │   ├── navbar.py           # Top bar: search, quick-add, theme toggle, profile
+    │   ├── card.py             # Themed card container
+    │   ├── modals.py           # Note / Task / Event dialogs + confirm dialog
+    │   └── ui_helpers.py       # Buttons, badges, entries, scrollable frame, tooltip
+    └── views/
+        ├── auth_view.py        # Login + Signup screen
+        ├── dashboard_view.py   # Hero banner, stats, schedule, tasks, recent notes
+        ├── notes_view.py       # Notes grid, filters, pin, export
+        ├── tasks_view.py       # List + Kanban board
+        ├── calendar_view.py    # Month / Week / Day calendar
+        ├── analytics_view.py   # Matplotlib embedded charts
+        └── settings_view.py    # Profile, theme, backup, sign out
 ```
 
-## Notes on the data model
+## Data Storage
 
-- A fresh install seeds a few sample notes, tasks, and events so the dashboard isn't empty on first look. Once you edit or clear that data, the seed never reappears.
-- "Import backup" expects a JSON file previously produced by "Export backup" on the Settings page.
-- Data currently isn't scoped per account — it's a single shared local dataset, which keeps the demo simple. If you want per-user data, namespace the storage keys in `utils/storage.js` by the logged-in user's id.
+All data lives in `~/.onedesk_store.json`. Use **Export Backup** in Settings to save a JSON snapshot, and **Import Backup** to restore it on any machine.
+
+## Notes
+
+- A fresh install seeds sample data (3 notes, 5 tasks, 4 events) so the dashboard is never empty on first look.
+- Theme (dark/light) preference is persisted to the store file automatically.
+- The demo account (`alex@lifeos.workspace`) bypasses authentication for instant preview.
