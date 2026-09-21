@@ -67,22 +67,64 @@ class SettingsView(tk.Frame):
         self._section(inner, "🎨  Appearance")
         app_card = self._card(inner)
 
-        theme_row = tk.Frame(app_card, bg=cfg.C("card"))
-        theme_row.pack(fill="x")
-        tk.Label(theme_row, text="Theme", font=cfg.FONT["sm_b"],
-                 bg=cfg.C("card"), fg=cfg.C("text")).pack(side="left")
-
         self._theme_var = tk.StringVar(value=cfg.current_theme_name())
-        for t_name in ("dark", "light"):
-            tk.Radiobutton(
-                theme_row, text=t_name.capitalize(),
-                variable=self._theme_var, value=t_name,
-                command=self._apply_theme,
-                bg=cfg.C("card"), fg=cfg.C("text"),
-                selectcolor=cfg.C("card2"),
-                activebackground=cfg.C("card"),
-                font=cfg.FONT["sm"],
-            ).pack(side="left", padx=12)
+        theme_grid = tk.Frame(app_card, bg=cfg.C("card"))
+        theme_grid.pack(fill="x", pady=(4, 0))
+
+        for i, (t_key, t_label, t_icon, t_accent, t_bg) in enumerate(cfg.THEME_META):
+            is_active = (t_key == cfg.current_theme_name())
+            t_card = tk.Frame(
+                theme_grid,
+                bg=cfg.C("card2") if not is_active else cfg.C("border"),
+                highlightthickness=2 if is_active else 1,
+                highlightbackground=cfg.C("accent") if is_active else cfg.C("border"),
+                padx=14,
+                pady=12,
+                cursor="hand2",
+            )
+            t_card.grid(row=0, column=i, padx=4, sticky="nsew")
+            theme_grid.columnconfigure(i, weight=1)
+
+            # Swatch & Radio row
+            top_t = tk.Frame(t_card, bg=t_card["bg"])
+            top_t.pack(fill="x")
+            tk.Label(top_t, text=t_icon, font=cfg.FONT["lg"], bg=t_card["bg"]).pack(side="left")
+
+            # Swatch preview dots
+            swatch = tk.Frame(top_t, bg=t_card["bg"])
+            swatch.pack(side="right")
+            tk.Label(swatch, text="●", font=cfg.FONT["xs"], fg=t_accent, bg=t_card["bg"]).pack(side="left")
+            tk.Label(swatch, text="●", font=cfg.FONT["xs"], fg=t_bg, bg=t_card["bg"]).pack(side="left")
+
+            # Label
+            lbl = tk.Label(
+                t_card,
+                text=t_label,
+                font=cfg.FONT["sm_b" if is_active else "sm"],
+                bg=t_card["bg"],
+                fg=cfg.C("accent") if is_active else cfg.C("text"),
+                anchor="w",
+            )
+            lbl.pack(fill="x", pady=(6, 2))
+
+            tag_txt = "Active" if is_active else "Click to apply"
+            tag_lbl = tk.Label(
+                t_card,
+                text=tag_txt,
+                font=cfg.FONT["xs"],
+                bg=t_card["bg"],
+                fg=cfg.C("success") if is_active else cfg.C("text3"),
+                anchor="w",
+            )
+            tag_lbl.pack(anchor="w")
+
+            # Click binding
+            def _choose(k=t_key):
+                self._theme_var.set(k)
+                self._apply_theme(k)
+
+            for w in (t_card, top_t, lbl, tag_lbl, swatch):
+                w.bind("<Button-1>", lambda _, k=t_key: _choose(k))
 
         # ── Data management ───────────────────────────────────────────────
         self._section(inner, "💾  Data Management")
@@ -139,11 +181,11 @@ class SettingsView(tk.Frame):
             self._save_feedback.configure(text="✓ Profile saved!")
             self.after(1800, lambda: self._save_feedback.configure(text=""))
 
-    def _apply_theme(self):
-        selected = self._theme_var.get()
+    def _apply_theme(self, theme_key=None):
+        selected = theme_key or self._theme_var.get()
         current  = cfg.current_theme_name()
         if selected != current:
-            self._on_theme_toggle()
+            self._on_theme_toggle(selected)
 
     def _export_backup(self):
         path = filedialog.asksaveasfilename(

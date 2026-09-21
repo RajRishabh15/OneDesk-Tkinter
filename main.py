@@ -197,14 +197,14 @@ class OneDeskApp:
         self._show_auth()
 
     # ── Theme toggle ─────────────────────────────────────────────────────────
-    def _toggle_theme(self):
-        new_theme = "light" if cfg.current_theme_name() == "dark" else "dark"
+    def _toggle_theme(self, theme_name: str = None):
+        new_theme = theme_name if theme_name else cfg.next_theme_name()
         cfg.set_theme(new_theme)
         save_data(KEYS.THEME, new_theme)
         self._root.configure(bg=cfg.C("bg"))
 
         # Update Windows native titlebar theme
-        apply_window_theme(self._root, dark=(new_theme == "dark"))
+        apply_window_theme(self._root, dark=(new_theme != "light"))
 
         # Defer rebuild so click event finishes cleanly without TclError
         self._root.after(20, self._rebuild_ui)
@@ -225,10 +225,10 @@ class OneDeskApp:
 
     # ── Global search ────────────────────────────────────────────────────────
     def _on_global_search(self, query: str):
-        # For now, navigate to Notes view filtered by query if query given.
-        # A full search results overlay could be added here.
         if query:
             self._navigate("Notes")
+            if hasattr(self, "_content") and isinstance(self._content, NotesView):
+                self._content._search_var.set(query)
 
     # ── Quick add task from navbar ────────────────────────────────────────────
     def _quick_add_task(self):

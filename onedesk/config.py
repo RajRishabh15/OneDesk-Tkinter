@@ -209,8 +209,8 @@ COLOR_MAP = {
 
 def color_pair(color_name: str) -> tuple:
     """Return (fg, bg) for a note/tag color in the current theme."""
-    theme = current_theme_name()
-    return COLOR_MAP.get(color_name, COLOR_MAP["violet"])[theme]
+    mode = "light" if current_theme_name() == "light" else "dark"
+    return COLOR_MAP.get(color_name, COLOR_MAP["violet"])[mode]
 
 # ── Navigation items ─────────────────────────────────────────────────────────
 NAV_ITEMS = [

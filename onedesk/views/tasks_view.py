@@ -19,9 +19,10 @@ class TasksView(tk.Frame):
     def __init__(self, parent, store, **kw):
         kw.setdefault("bg", cfg.C("bg"))
         super().__init__(parent, **kw)
-        self._store  = store
-        self._filter = "All"
-        self._view   = "list"   # "list" | "kanban"
+        self._store        = store
+        self._filter       = "All"
+        self._view         = "list"   # "list" | "kanban"
+        self._search_query = ""
 
         self._store.subscribe(self._refresh)
         self._build()
@@ -58,7 +59,7 @@ class TasksView(tk.Frame):
                  font=cfg.FONT["sm"], bg=cfg.C("bg"), fg=cfg.C("text2")).pack(side="left", pady=(6, 0))
         make_button(trow, text="+ New Task", command=self._open_new, variant="primary").pack(side="right")
 
-        # Filter pills + view toggle
+        # Filter pills + search box + view toggle
         controls = tk.Frame(self._header, bg=cfg.C("bg"))
         controls.pack(fill="x", pady=(10, 0))
 
@@ -72,6 +73,34 @@ class TasksView(tk.Frame):
                 relief="flat", bd=0, padx=12, pady=4, cursor="hand2",
                 command=lambda fi=f: self._set_filter(fi),
             ).pack(side="left", padx=2)
+
+        # Inline search input for tasks
+        search_box = tk.Frame(
+            controls,
+            bg=cfg.C("card2"),
+            highlightthickness=1,
+            highlightbackground=cfg.C("border"),
+        )
+        search_box.pack(side="left", padx=(16, 0))
+        tk.Label(
+            search_box, text="🔍", font=cfg.FONT["xs"],
+            bg=cfg.C("card2"), fg=cfg.C("text3"),
+        ).pack(side="left", padx=(6, 2))
+
+        self._search_entry = tk.Entry(
+            search_box,
+            font=cfg.FONT["xs"],
+            bg=cfg.C("card2"),
+            fg=cfg.C("text"),
+            insertbackground=cfg.C("text"),
+            relief="flat",
+            bd=0,
+            width=20,
+        )
+        self._search_entry.pack(side="left", padx=(0, 6), ipady=3)
+        if self._search_query:
+            self._search_entry.insert(0, self._search_query)
+        self._search_entry.bind("<KeyRelease>", self._on_search_input)
 
         # View toggle
         for label, mode in [("≡ List", "list"), ("⊞ Kanban", "kanban")]:
@@ -202,7 +231,7 @@ class TasksView(tk.Frame):
             # Column header
             hdr = tk.Frame(col, bg=cfg.C("card2"), padx=14, pady=10)
             hdr.pack(fill="x")
-            tasks_in_col = [t for t in self._store.tasks if t.get("status") == status]
+            tasks_in_col = [t for t in self._filtered_tasks() if t.get("status") == status]
             tk.Label(hdr, text=f"{status}  {len(tasks_in_col)}",
                      font=cfg.FONT["sm_b"], bg=cfg.C("card2"),
                      fg=col_colors.get(status, cfg.C("text"))).pack(side="left")
@@ -259,9 +288,22 @@ class TasksView(tk.Frame):
 
     # ── Helpers ──────────────────────────────────────────────────────────────
     def _filtered_tasks(self):
-        if self._filter == "All":
-            return self._store.tasks
-        return [t for t in self._store.tasks if t.get("status") == self._filter]
+        tasks = self._store.tasks
+        if self._filter != "All":
+            tasks = [t for t in tasks if t.get("status") == self._filter]
+        if self._search_query:
+            q = self._search_query.lower()
+            tasks = [
+                t for t in tasks
+                if q in t.get("title", "").lower()
+                or q in t.get("description", "").lower()
+                or q in t.get("category", "").lower()
+            ]
+        return tasks
+
+    def _on_search_input(self, _event=None):
+        self._search_query = self._search_entry.get().strip()
+        self._render_body()
 
     def _set_filter(self, f: str):
         self._filter = f

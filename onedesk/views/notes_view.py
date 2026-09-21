@@ -20,6 +20,8 @@ class NotesView(tk.Frame):
         self._store = store
         self._query = ""
         self._category = "All"
+        self._search_var = tk.StringVar()
+        self._search_var.trace_add("write", self._on_search)
 
         self._store.subscribe(self._refresh)
         self._build()
@@ -67,8 +69,6 @@ class NotesView(tk.Frame):
         search_outer.pack(side="left", fill="x", expand=True, padx=(0, 12))
         tk.Label(search_outer, text="🔍", font=cfg.FONT["sm"],
                  bg=cfg.C("card2"), fg=cfg.C("text3")).pack(side="left", padx=(8, 4))
-        self._search_var = tk.StringVar()
-        self._search_var.trace_add("write", self._on_search)
         e = tk.Entry(search_outer, textvariable=self._search_var,
                      font=cfg.FONT["sm"], bg=cfg.C("card2"), fg=cfg.C("text"),
                      insertbackground=cfg.C("text"), relief="flat", bd=0)

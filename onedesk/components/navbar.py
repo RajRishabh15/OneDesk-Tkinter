@@ -23,7 +23,8 @@ class Navbar(tk.Frame):
         self._on_quick_add    = on_quick_add
         self._on_search       = on_search
 
-        self._search_var = tk.StringVar()
+        self._search_popup = None
+        self._search_var   = tk.StringVar()
         self._search_var.trace_add("write", self._on_search_change)
 
         self._build()
@@ -83,6 +84,8 @@ class Navbar(tk.Frame):
         self._search_entry.configure(fg=cfg.C("text3"))
         self._search_entry.bind("<FocusIn>",  self._search_focus_in)
         self._search_entry.bind("<FocusOut>", self._search_focus_out)
+        self._search_entry.bind("<Return>",   self._on_search_enter)
+        self._search_entry.bind("<Escape>",   lambda _: self._search_popup.hide())
 
         # ── Right: actions ────────────────────────────────────────────────
         right = tk.Frame(self, bg=cfg.C("card"))
@@ -96,10 +99,10 @@ class Navbar(tk.Frame):
             variant="primary",
         ).pack(side="left", padx=(0, 8), pady=10)
 
-        # Theme toggle
+        # Theme toggle (cycles through 4 themes)
         self._theme_btn = tk.Button(
             right,
-            text="🌙" if cfg.current_theme_name() == "dark" else "☀",
+            text=cfg.get_theme_icon(),
             font=cfg.FONT["base"],
             bg=cfg.C("card2"),
             fg=cfg.C("text"),
@@ -142,19 +145,28 @@ class Navbar(tk.Frame):
             self._search_entry.configure(fg=cfg.C("text3"))
 
     def _on_search_change(self, *_):
-        query = self._search_var.get()
+        if getattr(self, "_search_popup", None) is None:
+            return
+        query = self._search_var.get().strip()
         if query and query != "Search notes, tasks, events…":
-            self._on_search(query)
+            self._search_popup.show(query)
         else:
-            self._on_search("")
+            self._search_popup.hide()
+
+    def _on_search_enter(self, _):
+        if getattr(self, "_search_popup", None) is None:
+            return
+        query = self._search_var.get().strip()
+        if query and query != "Search notes, tasks, events…":
+            self._search_popup.hide()
+            if self._on_search:
+                self._on_search(query)
 
     def _toggle_theme(self):
         self._on_theme_toggle()
         try:
             if hasattr(self, "_theme_btn") and self._theme_btn.winfo_exists():
-                self._theme_btn.configure(
-                    text="🌙" if cfg.current_theme_name() == "dark" else "☀"
-                )
+                self._theme_btn.configure(text=cfg.get_theme_icon())
         except tk.TclError:
             pass
 
@@ -163,7 +175,7 @@ class Navbar(tk.Frame):
             self.configure(bg=cfg.C("card"))
             if hasattr(self, "_theme_btn") and self._theme_btn.winfo_exists():
                 self._theme_btn.configure(
-                    text="🌙" if cfg.current_theme_name() == "dark" else "☀",
+                    text=cfg.get_theme_icon(),
                     bg=cfg.C("card2"),
                     fg=cfg.C("text"),
                 )
