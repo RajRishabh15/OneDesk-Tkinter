@@ -7,6 +7,7 @@ theme toggle, and user profile chip.
 import tkinter as tk
 from .. import config as cfg
 from .ui_helpers import make_button
+from .search_popup import SearchPopup
 
 
 class Navbar(tk.Frame):
@@ -26,6 +27,12 @@ class Navbar(tk.Frame):
         self._search_var.trace_add("write", self._on_search_change)
 
         self._build()
+        self._search_popup = SearchPopup(self._search_entry, self._store, on_navigate=self._on_search)
+
+    def destroy(self):
+        if hasattr(self, "_search_popup") and self._search_popup:
+            self._search_popup.destroy()
+        super().destroy()
 
     # ── Build ────────────────────────────────────────────────────────────────
     def _build(self):

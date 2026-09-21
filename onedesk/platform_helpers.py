@@ -35,13 +35,33 @@ def _hex_to_bgr_int(hex_color: str) -> int:
     return 0
 
 
-def apply_window_theme(window: tk.Wm, dark: bool = True, caption_hex: str = "", text_hex: str = "", border_hex: str = ""):
+def apply_window_theme(window: tk.Wm, dark: bool = None, caption_hex: str = "", text_hex: str = "", border_hex: str = ""):
     """
     Apply native Windows 10/11 immersive dark mode and optional caption/border colors
     to a Tkinter Tk or Toplevel window.
     """
     if sys.platform != "win32":
         return
+
+    try:
+        from . import config as cfg
+        if dark is None:
+            dark = (cfg.current_theme_name() != "light")
+        if not caption_hex:
+            caption_hex = cfg.C("card")
+        if not text_hex:
+            text_hex = cfg.C("text")
+        if not border_hex:
+            border_hex = cfg.C("border")
+    except Exception:
+        if dark is None:
+            dark = True
+        if not caption_hex:
+            caption_hex = "#19142b" if dark else "#ffffff"
+        if not text_hex:
+            text_hex = "#f0eef8" if dark else "#1e1b4b"
+        if not border_hex:
+            border_hex = "#2e2749" if dark else "#ddd6fe"
 
     try:
         window.update_idletasks()
@@ -65,30 +85,13 @@ def apply_window_theme(window: tk.Wm, dark: bool = True, caption_hex: str = "", 
         if caption_hex:
             c_val = ctypes.c_int(_hex_to_bgr_int(caption_hex))
             dwmapi.DwmSetWindowAttribute(hwnd, 35, ctypes.byref(c_val), ctypes.sizeof(c_val))
-        elif dark:
-            # Default rich dark titlebar
-            c_val = ctypes.c_int(_hex_to_bgr_int("#19142b"))
-            dwmapi.DwmSetWindowAttribute(hwnd, 35, ctypes.byref(c_val), ctypes.sizeof(c_val))
-        else:
-            # Light titlebar
-            c_val = ctypes.c_int(_hex_to_bgr_int("#ffffff"))
-            dwmapi.DwmSetWindowAttribute(hwnd, 35, ctypes.byref(c_val), ctypes.sizeof(c_val))
 
         if text_hex:
             t_val = ctypes.c_int(_hex_to_bgr_int(text_hex))
             dwmapi.DwmSetWindowAttribute(hwnd, 36, ctypes.byref(t_val), ctypes.sizeof(t_val))
-        elif dark:
-            t_val = ctypes.c_int(_hex_to_bgr_int("#f0eef8"))
-            dwmapi.DwmSetWindowAttribute(hwnd, 36, ctypes.byref(t_val), ctypes.sizeof(t_val))
-        else:
-            t_val = ctypes.c_int(_hex_to_bgr_int("#1e1b4b"))
-            dwmapi.DwmSetWindowAttribute(hwnd, 36, ctypes.byref(t_val), ctypes.sizeof(t_val))
 
         if border_hex:
             b_val = ctypes.c_int(_hex_to_bgr_int(border_hex))
-            dwmapi.DwmSetWindowAttribute(hwnd, 34, ctypes.byref(b_val), ctypes.sizeof(b_val))
-        elif dark:
-            b_val = ctypes.c_int(_hex_to_bgr_int("#2e2749"))
             dwmapi.DwmSetWindowAttribute(hwnd, 34, ctypes.byref(b_val), ctypes.sizeof(b_val))
 
     except Exception:

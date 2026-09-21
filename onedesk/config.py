@@ -59,7 +59,78 @@ LIGHT = {
     "tag_rose":    ("#be123c", "#ffe4e6"),
 }
 
+ROSE = {
+    "bg":          "#14080e",      # deep velvet wine/rose
+    "card":        "#1f0d17",      # burgundy velvet card
+    "card2":       "#2b1321",      # interactive hover surface
+    "border":      "#3f1931",      # subtle wine border
+    "accent":      "#f43f5e",      # primary rose accent
+    "accent2":     "#fb7185",      # secondary soft rose coral
+    "accent3":     "#fda4af",      # delicate rose petal
+    "text":        "#fff1f2",      # crisp rose-tinted white
+    "text2":       "#fca5a5",      # soft rose muted text
+    "text3":       "#9f1239",      # deep wine muted text
+    "success":     "#10b981",      # emerald green
+    "warn":        "#f59e0b",      # amber
+    "danger":      "#e11d48",      # crimson red
+    "sidebar_w":   210,
+    "navbar_h":    52,
+    "scrollbar_bg":"#1f0d17",
+    "scrollbar_fg":"#4c1d3c",
+    "entry_bg":    "#180a12",
+    "entry_sel":   "#3f1931",
+    "tag_violet":  ("#fda4af", "#4c0519"),
+    "tag_cyan":    ("#67e8f9", "#083344"),
+    "tag_green":   ("#86efac", "#052e16"),
+    "tag_amber":   ("#fde68a", "#451a03"),
+    "tag_rose":    ("#fb7185", "#3a0916"),
+}
+
+AQUA = {
+    "bg":          "#051314",      # obsidian oceanic teal
+    "card":        "#0b1e20",      # deep lagoon card
+    "card2":       "#10292c",      # lighter lagoon surface
+    "border":      "#163e41",      # teal border
+    "accent":      "#06b6d4",      # electric cyan / aqua
+    "accent2":     "#10b981",      # emerald green
+    "accent3":     "#14b8a6",      # mint teal
+    "text":        "#ecfeff",      # frosted aqua white
+    "text2":       "#a5f3fc",      # soft aqua muted text
+    "text3":       "#155e75",      # deep teal muted text
+    "success":     "#34d399",      # bright mint
+    "warn":        "#fbbf24",      # amber
+    "danger":      "#f43f5e",      # rose red
+    "sidebar_w":   210,
+    "navbar_h":    52,
+    "scrollbar_bg":"#0b1e20",
+    "scrollbar_fg":"#164e52",
+    "entry_bg":    "#071719",
+    "entry_sel":   "#163e41",
+    "tag_violet":  ("#c4b5fd", "#1e1b4b"),
+    "tag_cyan":    ("#67e8f9", "#083344"),
+    "tag_green":   ("#86efac", "#052e16"),
+    "tag_amber":   ("#fde68a", "#451a03"),
+    "tag_rose":    ("#fda4af", "#3b0a18"),
+}
+
+THEMES = {
+    "dark":  DARK,
+    "rose":  ROSE,
+    "aqua":  AQUA,
+    "light": LIGHT,
+}
+
+THEME_ORDER = ["dark", "rose", "aqua", "light"]
+
+THEME_META = [
+    ("dark",  "Midnight Purple", "🌙", "#a855f7", "#19142b"),
+    ("rose",  "Rose Noir",       "🌹", "#f43f5e", "#1f0d17"),
+    ("aqua",  "Aqua Emerald",    "🌊", "#06b6d4", "#0b1e20"),
+    ("light", "Lavender Light",  "☀",  "#7c3aed", "#ffffff"),
+]
+
 # Active palette — mutated at runtime by ThemeManager
+_current_theme_key = "dark"
 _current = dict(DARK)
 
 def C(key: str) -> str:
@@ -67,12 +138,26 @@ def C(key: str) -> str:
     return _current[key]
 
 def set_theme(name: str) -> None:
-    """Switch the active palette to 'dark' or 'light'."""
+    """Switch the active palette to 'dark', 'rose', 'aqua', or 'light'."""
+    global _current_theme_key
+    if name not in THEMES:
+        name = "dark"
+    _current_theme_key = name
     _current.clear()
-    _current.update(DARK if name == "dark" else LIGHT)
+    _current.update(THEMES[name])
 
 def current_theme_name() -> str:
-    return "dark" if _current["bg"] == DARK["bg"] else "light"
+    return _current_theme_key
+
+def next_theme_name() -> str:
+    """Return the next theme in the cycle sequence."""
+    idx = THEME_ORDER.index(_current_theme_key) if _current_theme_key in THEME_ORDER else 0
+    return THEME_ORDER[(idx + 1) % len(THEME_ORDER)]
+
+def get_theme_icon(name: str = None) -> str:
+    k = name or _current_theme_key
+    icons = {"dark": "🌙", "rose": "🌹", "aqua": "🌊", "light": "☀"}
+    return icons.get(k, "🌙")
 
 # ── Typography ───────────────────────────────────────────────────────────────
 FONT_FAMILY  = "Segoe UI"       # primary typeface (Windows)
