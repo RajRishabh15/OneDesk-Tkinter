@@ -127,13 +127,13 @@ class NotesView(tk.Frame):
 
         # Title
         tk.Label(card, text=note.get("title", "Untitled"), font=cfg.FONT["md_b"],
-                 bg=bg, fg=fg, anchor="w", wraplength=180).pack(anchor="w", pady=(2, 4))
+                 bg=bg, fg=fg, anchor="w", wraplength=280).pack(anchor="w", pady=(2, 4))
 
         # Preview
         desc = note.get("description", "")[:140]
         if desc:
             tk.Label(card, text=desc, font=cfg.FONT["xs"], bg=bg, fg=fg,
-                     anchor="w", wraplength=180, justify="left").pack(anchor="w", pady=(0, 6))
+                     anchor="w", wraplength=280, justify="left").pack(anchor="w", pady=(0, 6))
 
         # Tags
         if note.get("tags"):

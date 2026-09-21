@@ -19,11 +19,11 @@ DARK = {
     "success":     "#22c55e",      # green
     "warn":        "#f59e0b",      # amber
     "danger":      "#ef4444",      # red
-    "sidebar_w":   220,
+    "sidebar_w":   210,
     "navbar_h":    52,
     "scrollbar_bg":"#1e192f",
     "scrollbar_fg":"#3d3460",
-    "entry_bg":    "#13102280",
+    "entry_bg":    "#141024",
     "entry_sel":   "#2e2749",
     "tag_violet":  ("#c4b5fd", "#2e1a5c"),
     "tag_cyan":    ("#67e8f9", "#0d3a45"),
@@ -46,7 +46,7 @@ LIGHT = {
     "success":     "#16a34a",
     "warn":        "#b45309",
     "danger":      "#dc2626",
-    "sidebar_w":   220,
+    "sidebar_w":   210,
     "navbar_h":    52,
     "scrollbar_bg":"#ede9fe",
     "scrollbar_fg":"#c4b5fd",
@@ -103,9 +103,9 @@ PAD          = 12     # standard inner padding
 PAD_SM       = 6
 CARD_PAD     = 16
 WINDOW_W     = 1280
-WINDOW_H     = 800
-MIN_W        = 900
-MIN_H        = 600
+WINDOW_H     = 820
+MIN_W        = 1000
+MIN_H        = 650
 
 # ── Priority / status colours ────────────────────────────────────────────────
 PRIORITY_FG = {"High": "#f87171", "Medium": "#fbbf24", "Low": "#4ade80"}

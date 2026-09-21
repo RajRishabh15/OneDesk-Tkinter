@@ -6,6 +6,7 @@ theme switching, and ties all components together.
 
 import tkinter as tk
 from onedesk import config as cfg
+from onedesk.platform_helpers import enable_high_dpi, apply_window_theme, center_window
 from onedesk.storage import KEYS, load_data, save_data
 from onedesk.auth import AuthManager
 from onedesk.state import DataStore
@@ -32,15 +33,35 @@ VIEW_MAP = {
 
 class OneDeskApp:
     def __init__(self):
+        # Enable Windows high-DPI awareness before window creation
+        enable_high_dpi()
+
         self._root = tk.Tk()
         self._root.title("OneDesk — Personal Productivity Dashboard")
-        self._root.geometry(f"{cfg.WINDOW_W}x{cfg.WINDOW_H}")
         self._root.minsize(cfg.MIN_W, cfg.MIN_H)
 
-        # Apply saved theme
+        # Apply saved theme first
         saved_theme = load_data(KEYS.THEME, "dark")
         cfg.set_theme(saved_theme)
         self._root.configure(bg=cfg.C("bg"))
+
+        # Center window on monitor with comfortable proportions
+        sw = self._root.winfo_screenwidth()
+        sh = self._root.winfo_screenheight()
+        w = min(cfg.WINDOW_W, max(cfg.MIN_W, sw - 80))
+        h = min(cfg.WINDOW_H, max(cfg.MIN_H, sh - 100))
+        center_window(self._root, w, h)
+
+        # Native Windows 11 / 10 dark title bar styling
+        apply_window_theme(self._root, dark=(saved_theme == "dark"))
+
+        # Configure global Tk option database for dark/light mode consistency
+        self._root.option_add("*Background", cfg.C("bg"))
+        self._root.option_add("*Foreground", cfg.C("text"))
+        self._root.option_add("*selectBackground", cfg.C("accent"))
+        self._root.option_add("*selectForeground", "#ffffff")
+        self._root.option_add("*highlightBackground", cfg.C("border"))
+        self._root.option_add("*insertBackground", cfg.C("text"))
 
         # ── Core state ────────────────────────────────────────────────────
         self._auth  = AuthManager()
@@ -182,16 +203,25 @@ class OneDeskApp:
         save_data(KEYS.THEME, new_theme)
         self._root.configure(bg=cfg.C("bg"))
 
-        # Rebuild entire main frame to pick up new colours
-        if self._auth.is_logged_in and self._main_frame:
+        # Update Windows native titlebar theme
+        apply_window_theme(self._root, dark=(new_theme == "dark"))
+
+        # Defer rebuild so click event finishes cleanly without TclError
+        self._root.after(20, self._rebuild_ui)
+
+    def _rebuild_ui(self):
+        if self._auth.is_logged_in:
             active = self._active_view
-            self._main_frame.destroy()
-            self._main_frame = None
-            self._content = None
-            self._sidebar_ref = None
-            self._navbar_ref  = None
+            if self._main_frame:
+                self._main_frame.destroy()
+                self._main_frame = None
+                self._content = None
+                self._sidebar_ref = None
+                self._navbar_ref  = None
             self._show_main()
             self._navigate(active)
+        else:
+            self._show_auth()
 
     # ── Global search ────────────────────────────────────────────────────────
     def _on_global_search(self, query: str):

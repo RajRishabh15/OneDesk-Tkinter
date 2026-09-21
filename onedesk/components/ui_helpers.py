@@ -136,10 +136,11 @@ def _attach_placeholder(entry: tk.Entry, placeholder: str):
 
 # ── Styled text area ─────────────────────────────────────────────────────────
 
-def make_text(parent, height=6, **kw):
+def make_text(parent, height=6, width=40, **kw):
     t = tk.Text(
         parent,
         height=height,
+        width=width,
         font=cfg.FONT["base"],
         bg=cfg.C("card2"),
         fg=cfg.C("text"),
@@ -194,7 +195,25 @@ class ScrollableFrame(tk.Frame):
 
         self.inner.bind("<Configure>", self._on_inner_configure)
         self._canvas.bind("<Configure>", self._on_canvas_configure)
+
+        # Bind mousewheel only when hovering over this specific scroll area
+        self._canvas.bind("<Enter>", self._bind_mousewheel)
+        self._canvas.bind("<Leave>", self._unbind_mousewheel)
+        self.inner.bind("<Enter>", self._bind_mousewheel)
+        self.inner.bind("<Leave>", self._unbind_mousewheel)
+
+    def _bind_mousewheel(self, _):
         self._canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+
+    def _unbind_mousewheel(self, _):
+        self._canvas.unbind_all("<MouseWheel>")
+
+    def destroy(self):
+        try:
+            self._canvas.unbind_all("<MouseWheel>")
+        except Exception:
+            pass
+        super().destroy()
 
     def _on_inner_configure(self, _):
         self._canvas.configure(scrollregion=self._canvas.bbox("all"))
@@ -203,7 +222,11 @@ class ScrollableFrame(tk.Frame):
         self._canvas.itemconfig(self._window_id, width=e.width)
 
     def _on_mousewheel(self, e):
-        self._canvas.yview_scroll(int(-1 * (e.delta / 120)), "units")
+        try:
+            if self._canvas.winfo_exists():
+                self._canvas.yview_scroll(int(-1 * (e.delta / 120)), "units")
+        except tk.TclError:
+            pass
 
 
 # ── Card container ───────────────────────────────────────────────────────────

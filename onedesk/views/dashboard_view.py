@@ -73,10 +73,11 @@ class DashboardView(tk.Frame):
         hero_inner.pack(fill="both")
 
         # Status pill
-        pill = tk.Frame(hero_inner, bg="#2e1a5c")
+        pill_fg, pill_bg = cfg.color_pair("violet")
+        pill = tk.Frame(hero_inner, bg=pill_bg)
         pill.pack(anchor="w", pady=(0, 10))
         tk.Label(pill, text="● LIVE  •  Synced", font=cfg.FONT["xs"],
-                 bg="#2e1a5c", fg=cfg.C("accent"), padx=10, pady=3).pack()
+                 bg=pill_bg, fg=pill_fg, padx=10, pady=3).pack()
 
         tk.Label(
             hero_inner,
@@ -262,7 +263,7 @@ class DashboardView(tk.Frame):
                          bg=bg, fg=fg, anchor="w").pack(anchor="w")
                 tk.Label(chip, text=note.get("description", "")[:80],
                          font=cfg.FONT["xs"], bg=bg, fg=fg, anchor="w",
-                         wraplength=150).pack(anchor="w")
+                         wraplength=220).pack(anchor="w")
         else:
             tk.Label(rn_frame, text="No notes yet. Create your first note!", font=cfg.FONT["sm"],
                      bg=cfg.C("card"), fg=cfg.C("text2"), padx=16, pady=12).pack(anchor="w")

@@ -143,14 +143,22 @@ class Navbar(tk.Frame):
 
     def _toggle_theme(self):
         self._on_theme_toggle()
-        self._theme_btn.configure(
-            text="🌙" if cfg.current_theme_name() == "dark" else "☀"
-        )
+        try:
+            if hasattr(self, "_theme_btn") and self._theme_btn.winfo_exists():
+                self._theme_btn.configure(
+                    text="🌙" if cfg.current_theme_name() == "dark" else "☀"
+                )
+        except tk.TclError:
+            pass
 
     def refresh_theme(self):
-        self.configure(bg=cfg.C("card"))
-        self._theme_btn.configure(
-            text="🌙" if cfg.current_theme_name() == "dark" else "☀",
-            bg=cfg.C("card2"),
-            fg=cfg.C("text"),
-        )
+        try:
+            self.configure(bg=cfg.C("card"))
+            if hasattr(self, "_theme_btn") and self._theme_btn.winfo_exists():
+                self._theme_btn.configure(
+                    text="🌙" if cfg.current_theme_name() == "dark" else "☀",
+                    bg=cfg.C("card2"),
+                    fg=cfg.C("text"),
+                )
+        except tk.TclError:
+            pass

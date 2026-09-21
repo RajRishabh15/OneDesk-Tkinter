@@ -147,9 +147,10 @@ class TasksView(tk.Frame):
         chk = tk.Checkbutton(
             row, variable=done_var, bg=cfg.C("card"),
             activebackground=cfg.C("card"), selectcolor=cfg.C("card2"),
+            relief="flat", bd=0, highlightthickness=0, cursor="hand2",
             command=lambda tid=task["id"]: self._store.toggle_complete(tid),
         )
-        chk.pack(side="left")
+        chk.pack(side="left", padx=(0, 4))
 
         # Title
         title_fg = cfg.C("text2") if done else cfg.C("text")
@@ -223,7 +224,7 @@ class TasksView(tk.Frame):
 
         tk.Label(inner, text=task.get("title", ""), font=cfg.FONT["sm_b"],
                  bg=cfg.C("bg"), fg=cfg.C("text"), anchor="w",
-                 wraplength=160).pack(anchor="w")
+                 wraplength=220).pack(anchor="w")
 
         meta = tk.Frame(inner, bg=cfg.C("bg"))
         meta.pack(anchor="w", pady=(4, 0))
