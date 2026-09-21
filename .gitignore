@@ -1,3 +1,26 @@
-node_modules
-dist
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Data / user files
+*.onedesk_store.json
+onedesk_store.json
+
+# IDE / OS
 .DS_Store
+.idea/
+.vscode/
+*.swp
+Thumbs.db
