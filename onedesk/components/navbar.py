@@ -1,7 +1,8 @@
 """
 OneDesk Navbar — navbar.py
-Top header bar: app title, global live search, quick-add task button,
-theme toggle, and user profile chip.
+Top header bar: global live search, quick-add task button,
+theme toggle, and user profile chip. Designed to pair with the
+collapsible Sidebar (which now carries the app logo).
 """
 
 import tkinter as tk
@@ -9,11 +10,13 @@ from .. import config as cfg
 from .ui_helpers import make_button
 from .search_popup import SearchPopup
 
+_PLACEHOLDER = "Search notes, tasks, events…"
+
 
 class Navbar(tk.Frame):
     def __init__(self, parent, store, auth, on_theme_toggle, on_quick_add, on_search, **kw):
         kw.setdefault("bg", cfg.C("card"))
-        kw.setdefault("height", cfg.C("navbar_h"))
+        kw.setdefault("height", 50)
         super().__init__(parent, **kw)
         self.pack_propagate(False)
 
@@ -28,7 +31,9 @@ class Navbar(tk.Frame):
         self._search_var.trace_add("write", self._on_search_change)
 
         self._build()
-        self._search_popup = SearchPopup(self._search_entry, self._store, on_navigate=self._on_search)
+        self._search_popup = SearchPopup(
+            self._search_entry, self._store, on_navigate=self._on_search
+        )
 
     def destroy(self):
         if hasattr(self, "_search_popup") and self._search_popup:
@@ -37,73 +42,66 @@ class Navbar(tk.Frame):
 
     # ── Build ────────────────────────────────────────────────────────────────
     def _build(self):
-        # ── Left: app badge ───────────────────────────────────────────────
-        left = tk.Frame(self, bg=cfg.C("card"))
-        left.pack(side="left", fill="y", padx=(16, 0))
+        # Thin accent line at the bottom of the navbar
+        self._bottom_line = tk.Frame(self, bg=cfg.C("border"), height=1)
+        self._bottom_line.pack(side="bottom", fill="x")
 
-        tk.Label(
-            left,
-            text="OneDesk",
-            font=cfg.FONT["md_b"],
-            bg=cfg.C("card"),
-            fg=cfg.C("accent"),
-        ).pack(side="left", pady=12)
-
-        # ── Center: search bar ────────────────────────────────────────────
-        center = tk.Frame(self, bg=cfg.C("card"))
-        center.pack(side="left", fill="both", expand=True, padx=24)
-
-        search_outer = tk.Frame(
-            center,
+        # ── Center: pill-style search bar ────────────────────────────────
+        self._search_outer = tk.Frame(
+            self,
             bg=cfg.C("card2"),
             highlightthickness=1,
             highlightbackground=cfg.C("border"),
         )
-        search_outer.pack(pady=10, fill="x")
+        self._search_outer.pack(
+            side="left", fill="y", expand=True,
+            padx=(16, 0), pady=8, ipadx=2,
+        )
 
-        tk.Label(
-            search_outer,
+        self._search_icon = tk.Label(
+            self._search_outer,
             text="🔍",
             font=cfg.FONT["sm"],
             bg=cfg.C("card2"),
             fg=cfg.C("text3"),
-        ).pack(side="left", padx=(8, 4))
+        )
+        self._search_icon.pack(side="left", padx=(10, 2))
 
         self._search_entry = tk.Entry(
-            search_outer,
+            self._search_outer,
             textvariable=self._search_var,
             font=cfg.FONT["sm"],
             bg=cfg.C("card2"),
-            fg=cfg.C("text"),
+            fg=cfg.C("text3"),
             insertbackground=cfg.C("text"),
             relief="flat",
             bd=0,
+            width=38,
         )
-        self._search_entry.pack(side="left", fill="both", expand=True, padx=(0, 8), ipady=3)
-        self._search_entry.insert(0, "Search notes, tasks, events…")
-        self._search_entry.configure(fg=cfg.C("text3"))
+        self._search_entry.pack(side="left", fill="y", padx=(2, 10), ipady=2)
+        self._search_entry.insert(0, _PLACEHOLDER)
         self._search_entry.bind("<FocusIn>",  self._search_focus_in)
         self._search_entry.bind("<FocusOut>", self._search_focus_out)
         self._search_entry.bind("<Return>",   self._on_search_enter)
         self._search_entry.bind("<Escape>",   lambda _: self._search_popup.hide())
 
-        # ── Right: actions ────────────────────────────────────────────────
+        # ── Right: action cluster ─────────────────────────────────────────
         right = tk.Frame(self, bg=cfg.C("card"))
-        right.pack(side="right", fill="y", padx=(0, 16))
+        right.pack(side="right", fill="y", padx=(0, 14))
 
-        # Quick-add button
+        # "+ Task" quick-add button
         make_button(
             right,
-            text="+ Task",
+            text="＋ Task",
             command=self._on_quick_add,
             variant="primary",
         ).pack(side="left", padx=(0, 8), pady=10)
 
-        # Theme toggle (cycles through 4 themes)
+        # Theme-cycle button — shows an icon for the NEXT theme
         self._theme_btn = tk.Button(
             right,
             text=cfg.get_theme_icon(),
-            font=cfg.FONT["base"],
+            font=(cfg.FONT_FAMILY, 11),
             bg=cfg.C("card2"),
             fg=cfg.C("text"),
             activebackground=cfg.C("border"),
@@ -111,13 +109,18 @@ class Navbar(tk.Frame):
             relief="flat",
             bd=0,
             padx=8,
-            pady=5,
+            pady=4,
             cursor="hand2",
             command=self._toggle_theme,
         )
-        self._theme_btn.pack(side="left", padx=(0, 8), pady=10)
+        self._theme_btn.pack(side="left", padx=(0, 10), pady=10)
 
-        # User profile chip
+        # Separator line before avatar
+        tk.Frame(right, bg=cfg.C("border"), width=1).pack(
+            side="left", fill="y", pady=12, padx=(0, 10)
+        )
+
+        # User avatar chip
         name = self._auth.display_name
         initials = "".join(p[0].upper() for p in name.split()[:2]) if name else "?"
         self._user_chip = tk.Label(
@@ -126,29 +129,32 @@ class Navbar(tk.Frame):
             font=cfg.FONT["xs_b"],
             bg=cfg.C("accent"),
             fg="#ffffff",
-            padx=8,
-            pady=4,
+            padx=9,
+            pady=5,
             relief="flat",
             cursor="hand2",
         )
         self._user_chip.pack(side="left", pady=12)
 
-    # ── Callbacks ────────────────────────────────────────────────────────────
+    # ── Search callbacks ─────────────────────────────────────────────────────
     def _search_focus_in(self, _):
-        if self._search_entry.get() == "Search notes, tasks, events…":
+        if self._search_entry.get() == _PLACEHOLDER:
             self._search_entry.delete(0, "end")
             self._search_entry.configure(fg=cfg.C("text"))
+        # Highlight border on focus
+        self._search_outer.configure(highlightbackground=cfg.C("accent"))
 
     def _search_focus_out(self, _):
         if not self._search_entry.get():
-            self._search_entry.insert(0, "Search notes, tasks, events…")
+            self._search_entry.insert(0, _PLACEHOLDER)
             self._search_entry.configure(fg=cfg.C("text3"))
+        self._search_outer.configure(highlightbackground=cfg.C("border"))
 
     def _on_search_change(self, *_):
         if getattr(self, "_search_popup", None) is None:
             return
         query = self._search_var.get().strip()
-        if query and query != "Search notes, tasks, events…":
+        if query and query != _PLACEHOLDER:
             self._search_popup.show(query)
         else:
             self._search_popup.hide()
@@ -157,11 +163,12 @@ class Navbar(tk.Frame):
         if getattr(self, "_search_popup", None) is None:
             return
         query = self._search_var.get().strip()
-        if query and query != "Search notes, tasks, events…":
+        if query and query != _PLACEHOLDER:
             self._search_popup.hide()
             if self._on_search:
                 self._on_search(query)
 
+    # ── Theme toggle ─────────────────────────────────────────────────────────
     def _toggle_theme(self):
         self._on_theme_toggle()
         try:
@@ -173,11 +180,23 @@ class Navbar(tk.Frame):
     def refresh_theme(self):
         try:
             self.configure(bg=cfg.C("card"))
+            self._bottom_line.configure(bg=cfg.C("border"))
+            self._search_outer.configure(
+                bg=cfg.C("card2"),
+                highlightbackground=cfg.C("border"),
+            )
+            self._search_icon.configure(bg=cfg.C("card2"), fg=cfg.C("text3"))
+            self._search_entry.configure(
+                bg=cfg.C("card2"), fg=cfg.C("text3"),
+                insertbackground=cfg.C("text"),
+            )
             if hasattr(self, "_theme_btn") and self._theme_btn.winfo_exists():
                 self._theme_btn.configure(
                     text=cfg.get_theme_icon(),
                     bg=cfg.C("card2"),
                     fg=cfg.C("text"),
+                    activebackground=cfg.C("border"),
                 )
+            self._user_chip.configure(bg=cfg.C("accent"))
         except tk.TclError:
             pass
