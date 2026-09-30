@@ -84,6 +84,7 @@ class DataStore:
         task = {
             "id": str(uuid.uuid4()),
             "status": "Todo",
+            "completedAt": None,
             **fields,
         }
         self.tasks.insert(0, task)
@@ -102,13 +103,37 @@ class DataStore:
         self._notify()
 
     def set_task_status(self, task_id: str, status: str) -> None:
-        self.update_task(task_id, status=status)
+        if status == "Completed":
+            self.update_task(
+                task_id,
+                status=status,
+                completedAt=date.today().isoformat(),
+            )
+        else:
+            self.update_task(
+                task_id,
+                status=status,
+                completedAt=None,
+            )
 
     def toggle_complete(self, task_id: str) -> None:
         task = next((t for t in self.tasks if t["id"] == task_id), None)
-        if task:
-            new_status = "Todo" if task["status"] == "Completed" else "Completed"
-            self.update_task(task_id, status=new_status)
+
+        if not task:
+            return
+
+        if task["status"] == "Completed":
+            self.update_task(
+                task_id,
+                status="Todo",
+                completedAt=None,
+            )
+        else:
+            self.update_task(
+                task_id,
+                status="Completed",
+                completedAt=date.today().isoformat(),
+            )
 
     # ── Events ───────────────────────────────────────────────────────────────
     def add_event(self, **fields) -> dict:
