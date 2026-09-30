@@ -54,8 +54,9 @@ class TasksView(tk.Frame):
                  bg=cfg.C("bg"), fg=cfg.C("text")).pack(side="left")
         completed = len(self._store.completed_tasks)
         total     = len(self._store.tasks)
+        overdue = len(self._store.overdue_tasks)
         pct       = self._store.completion_pct
-        tk.Label(trow, text=f"  {completed}/{total} done ({pct}%)",
+        tk.Label(trow, text=f"  {completed}/{total} done ({pct}%) · {overdue} overdue",
                  font=cfg.FONT["sm"], bg=cfg.C("bg"), fg=cfg.C("text2")).pack(side="left", pady=(6, 0))
         make_button(trow, text="+ New Task", command=self._open_new, variant="primary").pack(side="right")
 
@@ -63,7 +64,7 @@ class TasksView(tk.Frame):
         controls = tk.Frame(self._header, bg=cfg.C("bg"))
         controls.pack(fill="x", pady=(10, 0))
 
-        for f in ["All"] + COLUMNS:
+        for f in ["All" , "Overdue"] + COLUMNS:
             active = (f == self._filter)
             tk.Button(
                 controls, text=f, font=cfg.FONT["xs_b"],
@@ -188,8 +189,19 @@ class TasksView(tk.Frame):
 
         # Meta info
         if task.get("dueDate"):
-            tk.Label(row, text=f"📅 {task['dueDate']}", font=cfg.FONT["xs"],
-                     bg=cfg.C("card"), fg=cfg.C("text3")).pack(side="left", padx=4)
+            is_overdue = (
+            task.get("status") != "Completed"
+            and task["dueDate"] < date.today().isoformat()
+            )
+            due_fg = cfg.C("danger") if is_overdue else cfg.C("text3")
+            due_text = "⚠ " if is_overdue else "📅 "
+            tk.Label(
+                row,
+                text=f"{due_text}{task['dueDate']}",
+                font=cfg.FONT["xs_b"] if is_overdue else cfg.FONT["xs"],
+                bg=cfg.C("card"),
+                fg=due_fg,
+            ).pack(side="left", padx=4)
         if task.get("category"):
             tk.Label(row, text=task["category"], font=cfg.FONT["xs"],
                      bg=cfg.C("card2"), fg=cfg.C("text2"), padx=6, pady=1).pack(side="left", padx=4)
@@ -258,8 +270,19 @@ class TasksView(tk.Frame):
         meta = tk.Frame(inner, bg=cfg.C("bg"))
         meta.pack(anchor="w", pady=(4, 0))
         if task.get("dueDate"):
-            tk.Label(meta, text=f"📅 {task['dueDate']}", font=cfg.FONT["xs"],
-                     bg=cfg.C("bg"), fg=cfg.C("text3")).pack(side="left")
+            is_overdue = (
+                task.get("status") != "Completed"
+                and task["dueDate"] < date.today().isoformat()
+            )
+            due_fg = cfg.C("danger") if is_overdue else cfg.C("text3")
+            due_text = "⚠ " if is_overdue else "📅 "
+            tk.Label(
+                meta,
+                text=f"{due_text}{task['dueDate']}",
+                font=cfg.FONT["xs_b"] if is_overdue else cfg.FONT["xs"],
+                bg=cfg.C("bg"),
+                fg=due_fg,
+            ).pack(side="left")
 
         pfg = cfg.PRIORITY_FG.get(task.get("priority", ""), cfg.C("text2"))
         pbg = cfg.PRIORITY_BG.get(task.get("priority", ""), cfg.C("card2"))
@@ -289,7 +312,9 @@ class TasksView(tk.Frame):
     # ── Helpers ──────────────────────────────────────────────────────────────
     def _filtered_tasks(self):
         tasks = self._store.tasks
-        if self._filter != "All":
+        if self._filter == "Overdue":
+            tasks = self._store.overdue_tasks
+        elif self._filter != "All":
             tasks = [t for t in tasks if t.get("status") == self._filter]
         if self._search_query:
             q = self._search_query.lower()

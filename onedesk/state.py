@@ -142,6 +142,19 @@ class DataStore:
         return [t for t in self.tasks if t["status"] != "Completed"]
 
     @property
+    def overdue_tasks(self) -> list[dict]:
+        today = date.today().isoformat()
+        return [
+            task
+            for task in self.tasks
+            if (
+                task.get("status") != "Completed"
+                and task.get("dueDate")
+                and task.get("dueDate") < today
+            )
+        ]
+
+    @property
     def today_events(self) -> list[dict]:
         today = date.today().isoformat()
         return sorted(
