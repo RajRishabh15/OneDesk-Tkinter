@@ -188,9 +188,9 @@ PAD          = 12     # standard inner padding
 PAD_SM       = 6
 CARD_PAD     = 16
 WINDOW_W     = 1280
-WINDOW_H     = 820
-MIN_W        = 1000
-MIN_H        = 650
+WINDOW_H     = 800
+MIN_W        = 860
+MIN_H        = 580
 
 # ── Priority / status colours ────────────────────────────────────────────────
 PRIORITY_FG = {"High": "#f87171", "Medium": "#fbbf24", "Low": "#4ade80"}

@@ -45,12 +45,18 @@ class OneDeskApp:
         cfg.set_theme(saved_theme)
         self._root.configure(bg=cfg.C("bg"))
 
-        # Center window on monitor with comfortable proportions
+        # Center window — 90 % of screen, capped at design target
         sw = self._root.winfo_screenwidth()
         sh = self._root.winfo_screenheight()
-        w = min(cfg.WINDOW_W, max(cfg.MIN_W, sw - 80))
-        h = min(cfg.WINDOW_H, max(cfg.MIN_H, sh - 100))
+        w  = min(cfg.WINDOW_W, int(sw * 0.90))
+        h  = min(cfg.WINDOW_H, int(sh * 0.88))
+        # Never go below minimum
+        w  = max(w, cfg.MIN_W)
+        h  = max(h, cfg.MIN_H)
         center_window(self._root, w, h)
+        # Let the user resize/maximize freely
+        self._root.resizable(True, True)
+
 
         # Native Windows 11 / 10 dark title bar styling
         apply_window_theme(self._root, dark=(saved_theme == "dark"))
