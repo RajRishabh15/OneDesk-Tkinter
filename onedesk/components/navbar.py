@@ -28,8 +28,8 @@ class ThemeDropdown(tk.Toplevel):
         self.configure(bg=cfg.C("border"))
 
         self._anchor = anchor_widget
-        self._place()
 
+        # Build content FIRST so winfo_reqwidth/height are accurate in _place()
         inner = tk.Frame(self, bg=cfg.C("card"), padx=10, pady=10)
         inner.pack(padx=1, pady=1, fill="both", expand=True)
 
@@ -46,13 +46,36 @@ class ThemeDropdown(tk.Toplevel):
 
         self.bind("<FocusOut>", self._on_focus_out)
         self.bind("<Escape>",   lambda _: self.destroy())
+
+        # Place AFTER layout so size is known
+        self._place()
         self.focus_force()
+
 
     def _place(self):
         self._anchor.update_idletasks()
-        x = self._anchor.winfo_rootx()
-        y = self._anchor.winfo_rooty() + self._anchor.winfo_height() + 4
-        self.geometry(f"+{x}+{y}")
+        self.update_idletasks()
+
+        # Anchor position
+        btn_x = self._anchor.winfo_rootx()
+        btn_y = self._anchor.winfo_rooty() + self._anchor.winfo_height() + 4
+
+        # Screen dimensions
+        sw = self._anchor.winfo_screenwidth()
+        sh = self._anchor.winfo_screenheight()
+
+        # Popup dimensions (after layout)
+        pw = self.winfo_reqwidth()
+        ph = self.winfo_reqheight()
+
+        # Clamp so it never goes off the right or bottom edge
+        x = min(btn_x, sw - pw - 4)
+        y = btn_y
+        if y + ph > sh - 40:          # too close to bottom — flip upward
+            y = self._anchor.winfo_rooty() - ph - 4
+
+        self.geometry(f"+{max(0, x)}+{max(0, y)}")
+
 
     def _make_row(self, parent, key, name, icon, accent):
         is_active = cfg.current_theme_name() == key
