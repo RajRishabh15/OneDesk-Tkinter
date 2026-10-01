@@ -84,6 +84,7 @@ class DataStore:
         task = {
             "id": str(uuid.uuid4()),
             "status": "Todo",
+            "completedAt": None,
             **fields,
         }
         self.tasks.insert(0, task)
@@ -102,13 +103,37 @@ class DataStore:
         self._notify()
 
     def set_task_status(self, task_id: str, status: str) -> None:
-        self.update_task(task_id, status=status)
+        if status == "Completed":
+            self.update_task(
+                task_id,
+                status=status,
+                completedAt=date.today().isoformat(),
+            )
+        else:
+            self.update_task(
+                task_id,
+                status=status,
+                completedAt=None,
+            )
 
     def toggle_complete(self, task_id: str) -> None:
         task = next((t for t in self.tasks if t["id"] == task_id), None)
-        if task:
-            new_status = "Todo" if task["status"] == "Completed" else "Completed"
-            self.update_task(task_id, status=new_status)
+
+        if not task:
+            return
+
+        if task["status"] == "Completed":
+            self.update_task(
+                task_id,
+                status="Todo",
+                completedAt=None,
+            )
+        else:
+            self.update_task(
+                task_id,
+                status="Completed",
+                completedAt=date.today().isoformat(),
+            )
 
     # ── Events ───────────────────────────────────────────────────────────────
     def add_event(self, **fields) -> dict:
@@ -140,6 +165,19 @@ class DataStore:
     @property
     def pending_tasks(self) -> list[dict]:
         return [t for t in self.tasks if t["status"] != "Completed"]
+
+    @property
+    def overdue_tasks(self) -> list[dict]:
+        today = date.today().isoformat()
+        return [
+            task
+            for task in self.tasks
+            if (
+                task.get("status") != "Completed"
+                and task.get("dueDate")
+                and task.get("dueDate") < today
+            )
+        ]
 
     @property
     def today_events(self) -> list[dict]:
