@@ -56,25 +56,40 @@ class ThemeDropdown(tk.Toplevel):
         self._anchor.update_idletasks()
         self.update_idletasks()
 
-        # Anchor position
-        btn_x = self._anchor.winfo_rootx()
-        btn_y = self._anchor.winfo_rooty() + self._anchor.winfo_height() + 4
+        # Button anchor coordinates
+        btn_x  = self._anchor.winfo_rootx()
+        btn_y  = self._anchor.winfo_rooty()
+        btn_h  = self._anchor.winfo_height()
 
-        # Screen dimensions
+        # Actual screen size
         sw = self._anchor.winfo_screenwidth()
         sh = self._anchor.winfo_screenheight()
 
-        # Popup dimensions (after layout)
-        pw = self.winfo_reqwidth()
+        # Popup required size — enforce a sensible minimum width
+        pw = max(self.winfo_reqwidth(), 220)
         ph = self.winfo_reqheight()
 
-        # Clamp so it never goes off the right or bottom edge
-        x = min(btn_x, sw - pw - 4)
-        y = btn_y
-        if y + ph > sh - 40:          # too close to bottom — flip upward
-            y = self._anchor.winfo_rooty() - ph - 4
+        # Preferred: directly below the button, left-aligned with it
+        x = btn_x
+        y = btn_y + btn_h + 4
 
-        self.geometry(f"+{max(0, x)}+{max(0, y)}")
+        # ── Clamp: right edge ─────────────────────────────────────────────
+        if x + pw > sw - 4:
+            x = sw - pw - 4
+
+        # ── Clamp: left edge ──────────────────────────────────────────────
+        x = max(4, x)
+
+        # ── Clamp: bottom edge (flip above button if not enough room) ─────
+        taskbar_h = 48          # conservative estimate for Windows taskbar
+        if y + ph > sh - taskbar_h:
+            y = btn_y - ph - 4  # flip upward
+
+        # ── Clamp: top edge ───────────────────────────────────────────────
+        y = max(4, y)
+
+        self.geometry(f"{pw}x{ph}+{x}+{y}")
+
 
 
     def _make_row(self, parent, key, name, icon, accent):
