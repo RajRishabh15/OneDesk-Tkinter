@@ -36,11 +36,11 @@ class DashboardView(tk.Frame):
         self._render()
 
     @staticmethod
-    def _greeting():
+    def _time_label():
         h = time.localtime().tm_hour
-        if h < 12:  return "Good morning"
-        if h < 17:  return "Good afternoon"
-        return "Good evening"
+        if h < 12:  return "Morning"
+        if h < 17:  return "Afternoon"
+        return "Evening"
 
     def _card(self, parent, **kw):
         kw.setdefault("bg", cfg.C("card"))
@@ -63,16 +63,16 @@ class DashboardView(tk.Frame):
         name = self._auth.display_name or "there"
         tk.Label(
             left_b,
-            text=f"{self._greeting()}, {name} \U0001f44b",
-            font=cfg.FONT["xl_b"],
+            text=f"Welcome back, {name} \U0001f44b",
+            font=cfg.FONT["2xl_b"],
             bg=cfg.C("bg"), fg=cfg.C("text"), anchor="w",
         ).pack(anchor="w")
         tk.Label(
             left_b,
-            text=today.strftime("%A, %B %d  \u2022  Here\'s your overview"),
-            font=cfg.FONT["xs"],
+            text=today.strftime("%A, %B %d") + f"  \u2022  {self._time_label()}",
+            font=cfg.FONT["sm"],
             bg=cfg.C("bg"), fg=cfg.C("text3"), anchor="w",
-        ).pack(anchor="w", pady=(2, 0))
+        ).pack(anchor="w", pady=(3, 0))
 
         # Quick-add on the right
         right_b = tk.Frame(banner, bg=cfg.C("bg"))
