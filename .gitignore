@@ -24,3 +24,6 @@ onedesk_store.json
 .vscode/
 *.swp
 Thumbs.db
+
+# MySQL credentials - never commit this
+config.ini
