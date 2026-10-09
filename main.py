@@ -17,7 +17,6 @@ from onedesk.views.dashboard_view import DashboardView
 from onedesk.views.notes_view import NotesView
 from onedesk.views.tasks_view import TasksView
 from onedesk.views.calendar_view import CalendarView
-from onedesk.views.analytics_view import AnalyticsView
 from onedesk.views.settings_view import SettingsView
 
 
@@ -26,7 +25,6 @@ VIEW_MAP = {
     "Notes":     NotesView,
     "Tasks":     TasksView,
     "Calendar":  CalendarView,
-    "Analytics": AnalyticsView,
     "Settings":  SettingsView,
 }
 
@@ -169,12 +167,6 @@ class OneDeskApp:
                 auth=self._auth,
                 on_theme_toggle=self._toggle_theme,
                 on_logout=self._on_logout,
-                bg=cfg.C("bg"),
-            )
-        elif view_name == "Analytics":
-            self._content = AnalyticsView(
-                self._content_area,
-                store=self._store,
                 bg=cfg.C("bg"),
             )
         elif view_name in ("Dashboard",):

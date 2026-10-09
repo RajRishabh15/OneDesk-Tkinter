@@ -21,7 +21,6 @@ class Sidebar(tk.Frame):
         ("Notes",     "📝"),
         ("Tasks",     "✔"),
         ("Calendar",  "📅"),
-        ("Analytics", "📊"),
         ("Settings",  "⚙"),
     ]
 
