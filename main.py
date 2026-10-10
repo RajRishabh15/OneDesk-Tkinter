@@ -123,6 +123,7 @@ class OneDeskApp:
             on_quick_add=self._quick_add_task,
             on_search=self._on_global_search,
             on_settings=lambda: self._navigate("Settings"),
+            on_logout=self._on_logout,
         )
         self._navbar_ref.pack(fill="x", side="top")
 

@@ -309,11 +309,13 @@ class Navbar(tk.Frame):
         self._on_quick_add    = on_quick_add
         self._on_search       = on_search
         self._on_settings     = on_settings
+        self._on_logout       = on_logout
         self._settings_active = False
 
-        self._search_popup = None
-        self._theme_popup  = None
-        self._search_var   = tk.StringVar()
+        self._search_popup  = None
+        self._theme_popup   = None
+        self._account_popup = None
+        self._search_var    = tk.StringVar()
         self._search_var.trace_add("write", self._on_search_change)
 
         self._build()
@@ -324,6 +326,10 @@ class Navbar(tk.Frame):
     def destroy(self):
         if hasattr(self, "_search_popup") and self._search_popup:
             self._search_popup.destroy()
+        if hasattr(self, "_theme_popup") and self._theme_popup and self._theme_popup.winfo_exists():
+            self._theme_popup.destroy()
+        if hasattr(self, "_account_popup") and self._account_popup and self._account_popup.winfo_exists():
+            self._account_popup.destroy()
         super().destroy()
 
     # ---- Build --------------------------------------------------------------
@@ -435,7 +441,7 @@ class Navbar(tk.Frame):
         self._tooltip = Tooltip(self._user_chip, "Account & Settings")
 
         for w in (self._account_btn, self._user_chip):
-            w.bind("<Button-1>", lambda e: self._open_settings())
+            w.bind("<Button-1>", lambda e: self._toggle_account_dropdown())
             w.bind("<Enter>",    lambda e: self._on_chip_hover(True), add="+")
             w.bind("<Leave>",    lambda e: self._on_chip_hover(False), add="+")
 
@@ -499,11 +505,34 @@ class Navbar(tk.Frame):
         initials = "".join(p[0].upper() for p in name.split()[:2]) if name else ""
         return initials if initials else "👤"
 
-    def _open_settings(self):
+    def _toggle_account_dropdown(self):
         if hasattr(self, "_tooltip") and self._tooltip:
             self._tooltip._hide(None)
+        if self._account_popup and self._account_popup.winfo_exists():
+            self._account_popup.destroy()
+            self._account_popup = None
+            return
+        if self._theme_popup and self._theme_popup.winfo_exists():
+            self._theme_popup.destroy()
+            self._theme_popup = None
+        self._account_popup = AccountDropdown(
+            anchor_widget=self._account_btn,
+            auth=self._auth,
+            on_settings=self._on_settings_click,
+            on_logout=self._on_logout_click,
+        )
+
+    def _on_settings_click(self):
+        self._account_popup = None
         if self._on_settings:
             self._on_settings()
+
+    def _on_logout_click(self):
+        self._account_popup = None
+        if self._auth:
+            self._auth.logout()
+        if self._on_logout:
+            self._on_logout()
 
     def set_settings_active(self, active: bool):
         self._settings_active = active
