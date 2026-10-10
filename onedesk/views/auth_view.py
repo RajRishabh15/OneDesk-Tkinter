@@ -1,12 +1,13 @@
 """
 OneDesk Auth View — auth_view.py
-Modern Login and Signup screens with theme dropdown, segmented switcher,
-password visibility toggle, demo account instant sign-in, and keyboard navigation.
+Modern, accessible Login and Signup screens with top theme dropdown,
+high-contrast typography, interactive segmented mode switcher,
+password show/hide toggle, demo account instant sign-in, and full keyboard navigation.
 """
 
 import tkinter as tk
 from .. import config as cfg
-from ..components.ui_helpers import make_button, make_entry, make_separator
+from ..components.ui_helpers import make_button, make_separator
 from ..components.navbar import ThemeDropdown
 
 
@@ -40,7 +41,7 @@ class AuthView(tk.Frame):
 
         # ── Top bar: Theme selector ─────────────────────────────────────────
         top_bar = tk.Frame(outer, bg=cfg.C("bg"))
-        top_bar.pack(fill="x", padx=24, pady=16)
+        top_bar.pack(fill="x", padx=28, pady=18)
 
         # Left subtle brand badge
         left_badge = tk.Frame(top_bar, bg=cfg.C("bg"))
@@ -48,24 +49,26 @@ class AuthView(tk.Frame):
         tk.Label(
             left_badge,
             text="⬡ OneDesk",
-            font=cfg.FONT["sm_b"],
+            font=cfg.FONT["base_b"],
             bg=cfg.C("bg"),
-            fg=cfg.C("text3"),
+            fg=cfg.C("text2"),
         ).pack(side="left")
 
-        # Right theme picker button
+        # Right theme picker button with clear border and high contrast
         self._theme_btn = tk.Button(
             top_bar,
             text=cfg.get_theme_icon() + "  Theme  ▾",
-            font=(cfg.FONT_FAMILY, 9),
+            font=cfg.FONT["sm_b"],
             bg=cfg.C("card"),
             fg=cfg.C("text"),
             activebackground=cfg.C("card2"),
             activeforeground=cfg.C("text"),
             relief="flat",
             bd=0,
-            padx=12,
-            pady=5,
+            padx=14,
+            pady=6,
+            highlightthickness=1,
+            highlightbackground=cfg.C("border"),
             cursor="hand2",
             command=self._open_theme_picker,
         )
@@ -80,30 +83,40 @@ class AuthView(tk.Frame):
             highlightthickness=1,
             highlightbackground=cfg.C("border"),
         )
-        card.place(relx=0.5, rely=0.5, anchor="center", width=450)
+        card.place(relx=0.5, rely=0.5, anchor="center", width=460)
 
-        # Top accent stripe
+        # Top accent color bar
         tk.Frame(card, bg=cfg.C("accent"), height=3).pack(fill="x")
 
         # Inner card body
-        body = tk.Frame(card, bg=cfg.C("card"), padx=32, pady=26)
+        body = tk.Frame(card, bg=cfg.C("card"), padx=36, pady=28)
         body.pack(fill="both", expand=True)
 
         # ── Logo / brand header ─────────────────────────────────────────────
         brand = tk.Frame(body, bg=cfg.C("card"))
         brand.pack(anchor="center", pady=(0, 2))
-        tk.Label(brand, text="⬡", font=(cfg.FONT_FAMILY, 24, "bold"),
-                 bg=cfg.C("card"), fg=cfg.C("accent")).pack(side="left")
-        tk.Label(brand, text=" OneDesk", font=cfg.FONT["2xl_b"],
-                 bg=cfg.C("card"), fg=cfg.C("text")).pack(side="left")
+        tk.Label(
+            brand,
+            text="⬡",
+            font=(cfg.FONT_FAMILY, 24, "bold"),
+            bg=cfg.C("card"),
+            fg=cfg.C("accent"),
+        ).pack(side="left")
+        tk.Label(
+            brand,
+            text=" OneDesk",
+            font=cfg.FONT["2xl_b"],
+            bg=cfg.C("card"),
+            fg=cfg.C("text"),
+        ).pack(side="left")
 
         tk.Label(
             body,
             text="Your personal productivity workspace.",
-            font=cfg.FONT["sm"],
+            font=cfg.FONT["base"],
             bg=cfg.C("card"),
             fg=cfg.C("text2"),
-        ).pack(pady=(0, 14))
+        ).pack(pady=(2, 16))
 
         # ── Segmented Switcher (Sign In / Create Account) ────────────────────
         self._tab_bar = tk.Frame(
@@ -111,17 +124,17 @@ class AuthView(tk.Frame):
             bg=cfg.C("card2"),
             highlightthickness=1,
             highlightbackground=cfg.C("border"),
-            padx=3,
-            pady=3,
+            padx=4,
+            pady=4,
         )
         self._tab_bar.pack(fill="x", pady=(0, 14))
 
         self._tab_login = tk.Label(
             self._tab_bar,
             text="Sign In",
-            font=cfg.FONT["xs_b"],
+            font=cfg.FONT["base_b"],
             padx=16,
-            pady=6,
+            pady=7,
             cursor="hand2",
         )
         self._tab_login.pack(side="left", fill="x", expand=True)
@@ -129,15 +142,19 @@ class AuthView(tk.Frame):
         self._tab_signup = tk.Label(
             self._tab_bar,
             text="Create Account",
-            font=cfg.FONT["xs_b"],
+            font=cfg.FONT["base_b"],
             padx=16,
-            pady=6,
+            pady=7,
             cursor="hand2",
         )
         self._tab_signup.pack(side="left", fill="x", expand=True)
 
         self._tab_login.bind("<Button-1>", lambda _: self._set_mode("login"))
         self._tab_signup.bind("<Button-1>", lambda _: self._set_mode("signup"))
+        self._tab_login.bind("<Enter>", lambda _: self._on_tab_hover(self._tab_login, True))
+        self._tab_login.bind("<Leave>", lambda _: self._on_tab_hover(self._tab_login, False))
+        self._tab_signup.bind("<Enter>", lambda _: self._on_tab_hover(self._tab_signup, True))
+        self._tab_signup.bind("<Leave>", lambda _: self._on_tab_hover(self._tab_signup, False))
 
         # ── Demo Account Tile ───────────────────────────────────────────────
         demo_tile = tk.Frame(
@@ -145,35 +162,48 @@ class AuthView(tk.Frame):
             bg=cfg.C("card2"),
             highlightthickness=1,
             highlightbackground=cfg.C("border"),
-            padx=12,
-            pady=8,
+            padx=14,
+            pady=10,
         )
-        demo_tile.pack(fill="x", pady=(0, 12))
+        demo_tile.pack(fill="x", pady=(0, 14))
 
         left_demo = tk.Frame(demo_tile, bg=cfg.C("card2"))
         left_demo.pack(side="left")
 
         top_demo_row = tk.Frame(left_demo, bg=cfg.C("card2"))
         top_demo_row.pack(anchor="w")
-        tk.Label(top_demo_row, text="⚡", font=cfg.FONT["sm"],
-                 bg=cfg.C("card2"), fg=cfg.C("warn")).pack(side="left")
-        tk.Label(top_demo_row, text=" Demo Account", font=cfg.FONT["xs_b"],
-                 bg=cfg.C("card2"), fg=cfg.C("text")).pack(side="left")
+        tk.Label(
+            top_demo_row,
+            text="⚡",
+            font=cfg.FONT["md"],
+            bg=cfg.C("card2"),
+            fg=cfg.C("warn"),
+        ).pack(side="left")
+        tk.Label(
+            top_demo_row,
+            text=" Demo Account",
+            font=cfg.FONT["base_b"],
+            bg=cfg.C("card2"),
+            fg=cfg.C("text"),
+        ).pack(side="left")
 
         tk.Label(
             left_demo,
             text="Instant sign-in with sample data",
-            font=cfg.FONT["xs"],
+            font=cfg.FONT["sm"],
             bg=cfg.C("card2"),
-            fg=cfg.C("text3"),
-        ).pack(anchor="w", pady=(1, 0))
+            fg=cfg.C("text2"),
+        ).pack(anchor="w", pady=(2, 0))
 
         make_button(
             demo_tile,
             text="Instant Sign-in →",
             command=self._demo_login,
             variant="primary",
-        ).pack(side="right", pady=2)
+            font=cfg.FONT["sm_b"],
+            padx=12,
+            pady=6,
+        ).pack(side="right")
 
         # ── Clean Divider ───────────────────────────────────────────────────
         div = tk.Frame(body, bg=cfg.C("card"))
@@ -182,9 +212,9 @@ class AuthView(tk.Frame):
         tk.Label(
             div,
             text="  or continue with email  ",
-            font=cfg.FONT["xs"],
+            font=cfg.FONT["sm"],
             bg=cfg.C("card"),
-            fg=cfg.C("text3"),
+            fg=cfg.C("text2"),
         ).pack(side="left")
         tk.Frame(div, bg=cfg.C("border"), height=1).pack(side="left", fill="x", expand=True)
 
@@ -194,15 +224,17 @@ class AuthView(tk.Frame):
             bg=cfg.C("card2"),
             highlightthickness=1,
             highlightbackground=cfg.C("danger"),
-            padx=10,
-            pady=6,
+            padx=12,
+            pady=8,
         )
         self._error_lbl = tk.Label(
             self._error_frame,
             text="",
-            font=cfg.FONT["xs_b"],
+            font=cfg.FONT["sm_b"],
             bg=cfg.C("card2"),
             fg=cfg.C("danger"),
+            wraplength=370,
+            justify="left",
         )
         self._error_lbl.pack(side="left")
 
@@ -212,11 +244,11 @@ class AuthView(tk.Frame):
 
         # ── Bottom Toggle Link ──────────────────────────────────────────────
         toggle_frame = tk.Frame(body, bg=cfg.C("card"))
-        toggle_frame.pack(pady=(12, 0))
+        toggle_frame.pack(pady=(14, 0))
         self._toggle_lbl = tk.Label(
             toggle_frame,
             text="",
-            font=cfg.FONT["xs"],
+            font=cfg.FONT["sm"],
             bg=cfg.C("card"),
             fg=cfg.C("text2"),
         )
@@ -224,7 +256,7 @@ class AuthView(tk.Frame):
         self._toggle_btn = tk.Button(
             toggle_frame,
             text="",
-            font=cfg.FONT["xs_b"],
+            font=cfg.FONT["sm_b"],
             bg=cfg.C("card"),
             fg=cfg.C("accent"),
             activeforeground=cfg.C("accent2"),
@@ -239,6 +271,12 @@ class AuthView(tk.Frame):
         # Render form and tabs initially
         self._render_form()
         self._update_ui_state()
+
+    def _on_tab_hover(self, tab_lbl: tk.Label, entering: bool):
+        is_active = (tab_lbl == self._tab_login and self._mode == "login") or \
+                    (tab_lbl == self._tab_signup and self._mode == "signup")
+        if not is_active:
+            tab_lbl.configure(bg=cfg.C("card") if entering else cfg.C("card2"))
 
     def _render_form(self):
         for w in self._form_frame.winfo_children():
@@ -263,40 +301,85 @@ class AuthView(tk.Frame):
 
         # Submit button
         btn_text = "Sign In" if self._mode == "login" else "Create Account"
-        make_button(
+        submit_btn = tk.Button(
             self._form_frame,
             text=btn_text,
             command=self._submit,
-            variant="primary",
-        ).pack(fill="x", pady=(14, 0), ipady=5)
+            font=cfg.FONT["md_b"],
+            bg=cfg.C("accent"),
+            fg="#ffffff",
+            activebackground=cfg.C("accent2"),
+            activeforeground="#ffffff",
+            relief="flat",
+            bd=0,
+            pady=9,
+            cursor="hand2",
+        )
+        submit_btn.pack(fill="x", pady=(14, 0))
 
     def _make_input_field(self, label: str, var: tk.StringVar):
         row = tk.Frame(self._form_frame, bg=cfg.C("card"))
         row.pack(fill="x", pady=(0, 10))
-        tk.Label(row, text=label, font=cfg.FONT["xs_b"],
-                 bg=cfg.C("card"), fg=cfg.C("text2")).pack(anchor="w", pady=(0, 3))
-        entry = make_entry(row, textvariable=var, width=34)
-        entry.pack(fill="x", ipady=4)
-        return entry
 
-    def _make_password_field(self, label: str, var: tk.StringVar):
-        row = tk.Frame(self._form_frame, bg=cfg.C("card"))
-        row.pack(fill="x", pady=(0, 10))
-        tk.Label(row, text=label, font=cfg.FONT["xs_b"],
-                 bg=cfg.C("card"), fg=cfg.C("text2")).pack(anchor="w", pady=(0, 3))
+        tk.Label(
+            row,
+            text=label,
+            font=cfg.FONT["sm_b"],
+            bg=cfg.C("card"),
+            fg=cfg.C("text"),
+            anchor="w",
+        ).pack(fill="x", pady=(0, 4))
 
-        pass_outer = tk.Frame(
+        outer = tk.Frame(
             row,
             bg=cfg.C("card2"),
             highlightthickness=1,
             highlightbackground=cfg.C("border"),
         )
-        pass_outer.pack(fill="x")
+        outer.pack(fill="x")
 
         entry = tk.Entry(
-            pass_outer,
+            outer,
             textvariable=var,
-            font=cfg.FONT["sm"],
+            font=cfg.FONT["base"],
+            bg=cfg.C("card2"),
+            fg=cfg.C("text"),
+            insertbackground=cfg.C("text"),
+            relief="flat",
+            bd=0,
+        )
+        entry.pack(fill="both", expand=True, padx=10, ipady=7)
+
+        entry.bind("<FocusIn>",  lambda _: outer.configure(highlightbackground=cfg.C("accent")))
+        entry.bind("<FocusOut>", lambda _: outer.configure(highlightbackground=cfg.C("border")))
+
+        return entry
+
+    def _make_password_field(self, label: str, var: tk.StringVar):
+        row = tk.Frame(self._form_frame, bg=cfg.C("card"))
+        row.pack(fill="x", pady=(0, 10))
+
+        tk.Label(
+            row,
+            text=label,
+            font=cfg.FONT["sm_b"],
+            bg=cfg.C("card"),
+            fg=cfg.C("text"),
+            anchor="w",
+        ).pack(fill="x", pady=(0, 4))
+
+        outer = tk.Frame(
+            row,
+            bg=cfg.C("card2"),
+            highlightthickness=1,
+            highlightbackground=cfg.C("border"),
+        )
+        outer.pack(fill="x")
+
+        entry = tk.Entry(
+            outer,
+            textvariable=var,
+            font=cfg.FONT["base"],
             bg=cfg.C("card2"),
             fg=cfg.C("text"),
             insertbackground=cfg.C("text"),
@@ -304,34 +387,55 @@ class AuthView(tk.Frame):
             bd=0,
             show="*" if self._hide_password else "",
         )
-        entry.pack(side="left", fill="both", expand=True, padx=8, ipady=5)
+        entry.pack(side="left", fill="both", expand=True, padx=(10, 4), ipady=7)
 
-        self._eye_btn = tk.Button(
-            pass_outer,
+        eye_btn = tk.Button(
+            outer,
             text="👁" if self._hide_password else "🙈",
-            font=(cfg.FONT_FAMILY, 9),
+            font=(cfg.FONT_FAMILY, 10),
             bg=cfg.C("card2"),
-            fg=cfg.C("text3"),
+            fg=cfg.C("text2"),
             activebackground=cfg.C("card2"),
             activeforeground=cfg.C("accent"),
             relief="flat",
             bd=0,
-            padx=8,
+            padx=10,
             cursor="hand2",
             command=self._toggle_password_visibility,
         )
-        self._eye_btn.pack(side="right", fill="y")
+        eye_btn.pack(side="right", fill="y")
+        self._eye_btn = eye_btn
+
+        entry.bind("<FocusIn>",  lambda _: outer.configure(highlightbackground=cfg.C("accent")))
+        entry.bind("<FocusOut>", lambda _: outer.configure(highlightbackground=cfg.C("border")))
+
         return entry
 
     def _update_ui_state(self):
         if self._mode == "login":
-            self._tab_login.configure(bg=cfg.C("accent"), fg="#ffffff")
-            self._tab_signup.configure(bg=cfg.C("card2"), fg=cfg.C("text2"))
+            self._tab_login.configure(
+                bg=cfg.C("accent"),
+                fg="#ffffff",
+                font=cfg.FONT["base_b"],
+            )
+            self._tab_signup.configure(
+                bg=cfg.C("card2"),
+                fg=cfg.C("text"),
+                font=cfg.FONT["base_b"],
+            )
             self._toggle_lbl.configure(text="Don't have an account? ")
             self._toggle_btn.configure(text="Sign up")
         else:
-            self._tab_login.configure(bg=cfg.C("card2"), fg=cfg.C("text2"))
-            self._tab_signup.configure(bg=cfg.C("accent"), fg="#ffffff")
+            self._tab_login.configure(
+                bg=cfg.C("card2"),
+                fg=cfg.C("text"),
+                font=cfg.FONT["base_b"],
+            )
+            self._tab_signup.configure(
+                bg=cfg.C("accent"),
+                fg="#ffffff",
+                font=cfg.FONT["base_b"],
+            )
             self._toggle_lbl.configure(text="Already have an account? ")
             self._toggle_btn.configure(text="Sign in")
 
@@ -359,7 +463,7 @@ class AuthView(tk.Frame):
     # ── Error Callout ────────────────────────────────────────────────────────
     def _show_error(self, message: str):
         self._error_lbl.configure(text=f"⚠  {message}")
-        self._error_frame.pack(fill="x", pady=(0, 10), before=self._form_frame)
+        self._error_frame.pack(fill="x", pady=(0, 12), before=self._form_frame)
 
     def _hide_error(self):
         self._error_frame.pack_forget()
