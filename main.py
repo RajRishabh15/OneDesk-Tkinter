@@ -85,7 +85,9 @@ class OneDeskApp:
             self._show_auth()
 
     # ── Auth / main toggle ───────────────────────────────────────────────────
-    def _show_auth(self):
+    def _show_auth(self, mode: str = None):
+        if mode:
+            self._auth_mode = mode
         if self._main_frame:
             self._main_frame.destroy()
             self._main_frame = None
@@ -96,6 +98,8 @@ class OneDeskApp:
             self._root,
             auth=self._auth,
             on_success=self._on_login,
+            on_theme_toggle=self._toggle_theme,
+            mode=getattr(self, "_auth_mode", "login"),
             bg=cfg.C("bg"),
         )
         self._auth_frame.pack(fill="both", expand=True)
@@ -205,7 +209,9 @@ class OneDeskApp:
             self._navbar_ref.refresh_user()
 
     # ── Theme toggle ─────────────────────────────────────────────────────────
-    def _toggle_theme(self, theme_name: str = None):
+    def _toggle_theme(self, theme_name: str = None, mode: str = None):
+        if mode:
+            self._auth_mode = mode
         new_theme = theme_name if theme_name else cfg.next_theme_name()
         cfg.set_theme(new_theme)
         save_data(KEYS.THEME, new_theme)
