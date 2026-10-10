@@ -6,7 +6,7 @@ theme dropdown picker, and user profile chip.
 
 import tkinter as tk
 from .. import config as cfg
-from .ui_helpers import make_button
+from .ui_helpers import make_button, make_separator, Tooltip
 from .search_popup import SearchPopup
 
 _PLACEHOLDER = "Search notes, tasks, events…"
@@ -134,11 +134,170 @@ class ThemeDropdown(tk.Toplevel):
 
 
 # --------------------------------------------------------------------------- #
+#  Account dropdown                                                            #
+# --------------------------------------------------------------------------- #
+
+class AccountDropdown(tk.Toplevel):
+    """Floating menu anchored below the account icon; provides Settings and Log Out."""
+
+    def __init__(self, anchor_widget, auth, on_settings, on_logout):
+        super().__init__(anchor_widget)
+        self._auth = auth
+        self._on_settings = on_settings
+        self._on_logout = on_logout
+
+        self.overrideredirect(True)
+        self.attributes("-topmost", True)
+        self.configure(bg=cfg.C("border"))
+
+        self._anchor = anchor_widget
+
+        inner = tk.Frame(self, bg=cfg.C("card"), padx=10, pady=10)
+        inner.pack(padx=1, pady=1, fill="both", expand=True)
+
+        # ── User info header ──
+        name = self._auth.display_name if self._auth else ""
+        email = (self._auth.user.get("email", "") if self._auth and self._auth.user else "")
+        if name or email:
+            u_frame = tk.Frame(inner, bg=cfg.C("card"))
+            u_frame.pack(fill="x", padx=4, pady=(2, 6))
+            if name:
+                tk.Label(
+                    u_frame,
+                    text=name,
+                    font=cfg.FONT["sm_b"],
+                    bg=cfg.C("card"),
+                    fg=cfg.C("text"),
+                    anchor="w",
+                ).pack(fill="x")
+            if email:
+                tk.Label(
+                    u_frame,
+                    text=email,
+                    font=cfg.FONT["xs"],
+                    bg=cfg.C("card"),
+                    fg=cfg.C("text3"),
+                    anchor="w",
+                ).pack(fill="x")
+
+            make_separator(inner, bg=cfg.C("border")).pack(fill="x", padx=2, pady=(4, 6))
+
+        # ── Menu Options ──
+        self._make_menu_item(inner, icon="⚙", text="Settings", callback=self._handle_settings)
+        self._make_menu_item(inner, icon="🚪", text="Log Out", callback=self._handle_logout, is_danger=True)
+
+        self.bind("<FocusOut>", self._on_focus_out)
+        self.bind("<Escape>",   lambda _: self.destroy())
+
+        self._place()
+        self.focus_force()
+
+    def _place(self):
+        self._anchor.update_idletasks()
+        self.update_idletasks()
+
+        btn_x  = self._anchor.winfo_rootx()
+        btn_y  = self._anchor.winfo_rooty()
+        btn_w  = self._anchor.winfo_width()
+        btn_h  = self._anchor.winfo_height()
+
+        sw = self._anchor.winfo_screenwidth()
+        sh = self._anchor.winfo_screenheight()
+
+        pw = max(self.winfo_reqwidth(), 190)
+        ph = self.winfo_reqheight()
+
+        # Align right edge of dropdown with right edge of the button
+        x = btn_x + btn_w - pw
+        y = btn_y + btn_h + 4
+
+        # Clamp right edge
+        if x + pw > sw - 8:
+            x = sw - pw - 8
+        # Clamp left edge
+        x = max(8, x)
+
+        # Clamp bottom edge (flip upward if not enough space below)
+        taskbar_h = 48
+        if y + ph > sh - taskbar_h:
+            y = btn_y - ph - 4
+        y = max(4, y)
+
+        self.geometry(f"{pw}x{ph}+{x}+{y}")
+
+    def _make_menu_item(self, parent, icon: str, text: str, callback, is_danger: bool = False):
+        row = tk.Frame(parent, bg=cfg.C("card"), cursor="hand2", padx=8, pady=6)
+        row.pack(fill="x", pady=1)
+
+        fg_col = cfg.C("danger") if is_danger else cfg.C("text")
+
+        icon_lbl = tk.Label(
+            row,
+            text=icon,
+            font=(cfg.FONT_FAMILY, 11),
+            bg=cfg.C("card"),
+            fg=fg_col,
+            cursor="hand2",
+            width=2,
+            anchor="w",
+        )
+        icon_lbl.pack(side="left")
+
+        text_lbl = tk.Label(
+            row,
+            text=text,
+            font=cfg.FONT["sm_b"],
+            bg=cfg.C("card"),
+            fg=fg_col,
+            cursor="hand2",
+            anchor="w",
+        )
+        text_lbl.pack(side="left", fill="x", expand=True)
+
+        def _on_click():
+            try:
+                self.destroy()
+            except Exception:
+                pass
+            callback()
+
+        def _on_hover(entering: bool):
+            bg = cfg.C("card2") if entering else cfg.C("card")
+            row.configure(bg=bg)
+            icon_lbl.configure(bg=bg)
+            text_lbl.configure(bg=bg)
+
+        for w in (row, icon_lbl, text_lbl):
+            w.bind("<Button-1>", lambda e: _on_click())
+            w.bind("<Enter>",    lambda e: _on_hover(True))
+            w.bind("<Leave>",    lambda e: _on_hover(False))
+
+    def _handle_settings(self):
+        if self._on_settings:
+            self._on_settings()
+
+    def _handle_logout(self):
+        if self._on_logout:
+            self._on_logout()
+
+    def _on_focus_out(self, event):
+        def _check():
+            try:
+                if self.winfo_exists():
+                    focused = self.focus_get()
+                    if focused is None or not str(focused).startswith(str(self)):
+                        self.destroy()
+            except Exception:
+                pass
+        self.after(150, _check)
+
+
+# --------------------------------------------------------------------------- #
 #  Navbar                                                                      #
 # --------------------------------------------------------------------------- #
 
 class Navbar(tk.Frame):
-    def __init__(self, parent, store, auth, on_theme_toggle, on_quick_add, on_search, **kw):
+    def __init__(self, parent, store, auth, on_theme_toggle, on_quick_add, on_search, on_settings=None, on_logout=None, **kw):
         kw.setdefault("bg", cfg.C("card"))
         kw.setdefault("height", 50)
         super().__init__(parent, **kw)
@@ -149,6 +308,8 @@ class Navbar(tk.Frame):
         self._on_theme_toggle = on_theme_toggle
         self._on_quick_add    = on_quick_add
         self._on_search       = on_search
+        self._on_settings     = on_settings
+        self._settings_active = False
 
         self._search_popup = None
         self._theme_popup  = None
@@ -245,21 +406,38 @@ class Navbar(tk.Frame):
             side="left", fill="y", pady=12, padx=(0, 10)
         )
 
-        # User avatar chip
-        name = self._auth.display_name
-        initials = "".join(p[0].upper() for p in name.split()[:2]) if name else "?"
-        self._user_chip = tk.Label(
+        # Account / user chip (opens Settings)
+        self._account_btn = tk.Frame(
             right,
-            text=initials,
+            bg=cfg.C("card"),
+            cursor="hand2",
+            padx=2,
+            pady=2,
+            highlightthickness=1,
+            highlightbackground=cfg.C("card"),
+        )
+        self._account_btn.pack(side="left", pady=10)
+
+        self._user_chip = tk.Label(
+            self._account_btn,
+            text=self._avatar_text(),
             font=cfg.FONT["xs_b"],
             bg=cfg.C("accent"),
             fg="#ffffff",
             padx=9,
-            pady=5,
+            pady=4,
             relief="flat",
             cursor="hand2",
         )
-        self._user_chip.pack(side="left", pady=12)
+        self._user_chip.pack(side="left")
+
+        from .ui_helpers import Tooltip
+        self._tooltip = Tooltip(self._user_chip, "Account & Settings")
+
+        for w in (self._account_btn, self._user_chip):
+            w.bind("<Button-1>", lambda e: self._open_settings())
+            w.bind("<Enter>",    lambda e: self._on_chip_hover(True), add="+")
+            w.bind("<Leave>",    lambda e: self._on_chip_hover(False), add="+")
 
     # ---- Theme picker -------------------------------------------------------
     def _theme_label(self) -> str:
@@ -315,6 +493,51 @@ class Navbar(tk.Frame):
             if self._on_search:
                 self._on_search(query)
 
+    # ---- Account / Settings -------------------------------------------------
+    def _avatar_text(self) -> str:
+        name = self._auth.display_name if self._auth else ""
+        initials = "".join(p[0].upper() for p in name.split()[:2]) if name else ""
+        return initials if initials else "👤"
+
+    def _open_settings(self):
+        if hasattr(self, "_tooltip") and self._tooltip:
+            self._tooltip._hide(None)
+        if self._on_settings:
+            self._on_settings()
+
+    def set_settings_active(self, active: bool):
+        self._settings_active = active
+        if not hasattr(self, "_account_btn") or not self._account_btn.winfo_exists():
+            return
+        if active:
+            self._account_btn.configure(
+                highlightbackground=cfg.C("accent"),
+                bg=cfg.C("card2"),
+            )
+            self._user_chip.configure(bg=cfg.C("accent"))
+        else:
+            self._account_btn.configure(
+                highlightbackground=cfg.C("card"),
+                bg=cfg.C("card"),
+            )
+            self._user_chip.configure(bg=cfg.C("accent"))
+
+    def _on_chip_hover(self, entering: bool):
+        if self._settings_active:
+            return
+        if not hasattr(self, "_user_chip") or not self._user_chip.winfo_exists():
+            return
+        if entering:
+            self._user_chip.configure(bg=cfg.C("accent2"))
+            self._account_btn.configure(bg=cfg.C("card2"), highlightbackground=cfg.C("border"))
+        else:
+            self._user_chip.configure(bg=cfg.C("accent"))
+            self._account_btn.configure(bg=cfg.C("card"), highlightbackground=cfg.C("card"))
+
+    def refresh_user(self):
+        if hasattr(self, "_user_chip") and self._user_chip.winfo_exists():
+            self._user_chip.configure(text=self._avatar_text())
+
     # ---- Theme refresh ------------------------------------------------------
     def refresh_theme(self):
         try:
@@ -336,6 +559,15 @@ class Navbar(tk.Frame):
                     fg=cfg.C("text"),
                     activebackground=cfg.C("border"),
                 )
-            self._user_chip.configure(bg=cfg.C("accent"))
+            if hasattr(self, "_user_chip") and self._user_chip.winfo_exists():
+                self._user_chip.configure(
+                    bg=cfg.C("accent"),
+                    text=self._avatar_text(),
+                )
+            if hasattr(self, "_account_btn") and self._account_btn.winfo_exists():
+                self._account_btn.configure(
+                    bg=cfg.C("card2") if self._settings_active else cfg.C("card"),
+                    highlightbackground=cfg.C("accent") if self._settings_active else cfg.C("card"),
+                )
         except tk.TclError:
             pass

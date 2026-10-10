@@ -12,13 +12,14 @@ from ..components.modals import confirm
 
 
 class SettingsView(tk.Frame):
-    def __init__(self, parent, store, auth, on_theme_toggle, on_logout, **kw):
+    def __init__(self, parent, store, auth, on_theme_toggle, on_logout, on_profile_updated=None, **kw):
         kw.setdefault("bg", cfg.C("bg"))
         super().__init__(parent, **kw)
-        self._store           = store
-        self._auth            = auth
-        self._on_theme_toggle = on_theme_toggle
-        self._on_logout       = on_logout
+        self._store              = store
+        self._auth               = auth
+        self._on_theme_toggle    = on_theme_toggle
+        self._on_logout          = on_logout
+        self._on_profile_updated = on_profile_updated
 
         self._build()
 
@@ -180,6 +181,8 @@ class SettingsView(tk.Frame):
             self._auth.update_profile(name=new_name)
             self._save_feedback.configure(text="✓ Profile saved!")
             self.after(1800, lambda: self._save_feedback.configure(text=""))
+            if self._on_profile_updated:
+                self._on_profile_updated()
 
     def _apply_theme(self, theme_key=None):
         selected = theme_key or self._theme_var.get()

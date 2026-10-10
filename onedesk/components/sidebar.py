@@ -21,7 +21,6 @@ class Sidebar(tk.Frame):
         ("Notes",     "📝"),
         ("Tasks",     "✔"),
         ("Calendar",  "📅"),
-        ("Settings",  "⚙"),
     ]
 
     def __init__(self, parent, on_navigate, **kw):
