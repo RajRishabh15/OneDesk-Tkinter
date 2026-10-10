@@ -25,19 +25,23 @@ def make_button(parent, text, command=None, variant="primary", icon="", **kw):
     s = styles.get(variant, styles["secondary"])
     label = f"{icon} {text}".strip() if icon else text
 
+    font = kw.pop("font", cfg.FONT["sm_b"])
+    padx = kw.pop("padx", 12)
+    pady = kw.pop("pady", 5)
+
     btn = tk.Button(
         parent,
         text=label,
         command=command,
-        bg=s["bg"],
-        fg=s["fg"],
-        activebackground=s["ab"],
-        activeforeground=s["fg"],
+        bg=kw.pop("bg", s["bg"]),
+        fg=kw.pop("fg", s["fg"]),
+        activebackground=kw.pop("activebackground", s["ab"]),
+        activeforeground=kw.pop("activeforeground", s["fg"]),
         relief="flat",
         bd=0,
-        padx=12,
-        pady=5,
-        font=cfg.FONT["sm_b"],
+        padx=padx,
+        pady=pady,
+        font=font,
         cursor="hand2",
         **kw,
     )

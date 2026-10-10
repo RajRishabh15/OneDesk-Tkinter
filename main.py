@@ -85,7 +85,9 @@ class OneDeskApp:
             self._show_auth()
 
     # ── Auth / main toggle ───────────────────────────────────────────────────
-    def _show_auth(self):
+    def _show_auth(self, mode: str = None):
+        if mode:
+            self._auth_mode = mode
         if self._main_frame:
             self._main_frame.destroy()
             self._main_frame = None
@@ -96,6 +98,8 @@ class OneDeskApp:
             self._root,
             auth=self._auth,
             on_success=self._on_login,
+            on_theme_toggle=self._toggle_theme,
+            mode=getattr(self, "_auth_mode", "login"),
             bg=cfg.C("bg"),
         )
         self._auth_frame.pack(fill="both", expand=True)
@@ -122,6 +126,8 @@ class OneDeskApp:
             on_theme_toggle=self._toggle_theme,
             on_quick_add=self._quick_add_task,
             on_search=self._on_global_search,
+            on_settings=lambda: self._navigate("Settings"),
+            on_logout=self._on_logout,
         )
         self._navbar_ref.pack(fill="x", side="top")
 
@@ -149,6 +155,8 @@ class OneDeskApp:
         self._active_view = view_name
         if self._sidebar_ref:
             self._sidebar_ref.set_active(view_name)
+        if self._navbar_ref:
+            self._navbar_ref.set_settings_active(view_name == "Settings")
 
         # Destroy existing content
         if self._content:
@@ -167,6 +175,7 @@ class OneDeskApp:
                 auth=self._auth,
                 on_theme_toggle=self._toggle_theme,
                 on_logout=self._on_logout,
+                on_profile_updated=self._on_profile_updated,
                 bg=cfg.C("bg"),
             )
         elif view_name in ("Dashboard",):
@@ -194,8 +203,15 @@ class OneDeskApp:
         self._content = None
         self._show_auth()
 
+    # ── Profile update ───────────────────────────────────────────────────────
+    def _on_profile_updated(self):
+        if self._navbar_ref:
+            self._navbar_ref.refresh_user()
+
     # ── Theme toggle ─────────────────────────────────────────────────────────
-    def _toggle_theme(self, theme_name: str = None):
+    def _toggle_theme(self, theme_name: str = None, mode: str = None):
+        if mode:
+            self._auth_mode = mode
         new_theme = theme_name if theme_name else cfg.next_theme_name()
         cfg.set_theme(new_theme)
         save_data(KEYS.THEME, new_theme)

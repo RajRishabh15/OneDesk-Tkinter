@@ -218,6 +218,4 @@ NAV_ITEMS = [
     ("Notes",      "📝"),
     ("Tasks",      "✓"),
     ("Calendar",   "📅"),
-    ("Analytics",  "📊"),
-    ("Settings",   "⚙"),
 ]
