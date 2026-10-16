@@ -3,8 +3,10 @@ OneDesk UI Helpers — ui_helpers.py
 Reusable styled widget factories: buttons, badges, entries, scrollable frames.
 """
 
+import os
 import tkinter as tk
 from tkinter import ttk
+from PIL import Image, ImageDraw, ImageFont, ImageTk
 from .. import config as cfg
 
 
@@ -323,3 +325,130 @@ class Tooltip:
         if self._tip:
             self._tip.destroy()
             self._tip = None
+
+
+# ── Circular Avatar Generator ────────────────────────────────────────────────
+
+def create_circular_avatar(image_path=None, size=40, text="?", bg=None, fg="#ffffff") -> ImageTk.PhotoImage:
+    """
+    Creates a smooth circular PhotoImage.
+    If image_path is valid, center-crops and masks the image into an anti-aliased circle.
+    Otherwise generates a circular badge featuring the user's initials.
+    """
+    bg_color = bg or cfg.C("accent")
+    if image_path and os.path.exists(image_path):
+        try:
+            im = Image.open(image_path).convert("RGBA")
+            w, h = im.size
+            min_dim = min(w, h)
+            left = (w - min_dim) // 2
+            top = (h - min_dim) // 2
+            im = im.crop((left, top, left + min_dim, top + min_dim))
+            im = im.resize((size, size), Image.Resampling.LANCZOS)
+            mask = Image.new("L", (size, size), 0)
+            d = ImageDraw.Draw(mask)
+            d.ellipse((0, 0, size - 1, size - 1), fill=255)
+            im.putalpha(mask)
+            return ImageTk.PhotoImage(im)
+        except Exception:
+            pass
+
+    # Fallback initials avatar
+    im = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    d.ellipse((0, 0, size - 1, size - 1), fill=bg_color)
+    try:
+        font_size = max(9, int(size * 0.40))
+        font = ImageFont.truetype("segoeui.ttf", font_size)
+    except Exception:
+        font = ImageFont.load_default()
+
+    clean_text = text[:2].upper() if text else "?"
+    bbox = d.textbbox((0, 0), clean_text, font=font)
+    tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    tx = (size - tw) // 2
+    ty = (size - th) // 2 - bbox[1]
+    d.text((tx, ty), clean_text, fill=fg, font=font)
+    return ImageTk.PhotoImage(im)
+
+
+# ── Round Icon Button ────────────────────────────────────────────────────────
+
+class RoundIconButton(tk.Canvas):
+    """
+    Fluid circular interactive button with hover states.
+    Ideal for quick-action icons: complete task (✓), delete task (✕), add (＋).
+    """
+    def __init__(self, parent, icon="✓", command=None, size=28,
+                 bg_color=None, fg_color=None, hover_bg=None, hover_fg=None,
+                 border_color=None, font=None, tooltip=None, parent_bg=None, **kw):
+        p_bg = parent_bg or (parent.cget("bg") if hasattr(parent, "cget") else cfg.C("card"))
+        super().__init__(parent, width=size, height=size, bg=p_bg, highlightthickness=0, **kw)
+        self._command = command
+        self._size = size
+        self._bg_color = bg_color or cfg.C("card2")
+        self._fg_color = fg_color or cfg.C("text2")
+        self._hover_bg = hover_bg or cfg.C("accent")
+        self._hover_fg = hover_fg or "#ffffff"
+        self._border_color = border_color or cfg.C("border")
+        self._font = font or (cfg.FONT_FAMILY, 9, "bold")
+        self._tooltip_text = tooltip
+
+        pad = 2
+        self._oval = self.create_oval(
+            pad, pad, size - pad, size - pad,
+            fill=self._bg_color, outline=self._border_color, width=1
+        )
+        self._text = self.create_text(
+            size // 2, size // 2,
+            text=icon, fill=self._fg_color, font=self._font
+        )
+
+        self.bind("<Enter>", self._on_enter)
+        self.bind("<Leave>", self._on_leave)
+        self.bind("<Button-1>", self._on_click)
+        self.configure(cursor="hand2")
+
+        if tooltip:
+            Tooltip(self, tooltip)
+
+    def _on_enter(self, _):
+        self.itemconfig(self._oval, fill=self._hover_bg, outline=self._hover_bg)
+        self.itemconfig(self._text, fill=self._hover_fg)
+
+    def _on_leave(self, _):
+        self.itemconfig(self._oval, fill=self._bg_color, outline=self._border_color)
+        self.itemconfig(self._text, fill=self._fg_color)
+
+    def _on_click(self, _):
+        if self._command:
+            self._command()
+
+    def update_colors(self, bg_color=None, fg_color=None, border_color=None, parent_bg=None):
+        if parent_bg:
+            self.configure(bg=parent_bg)
+        if bg_color:
+            self._bg_color = bg_color
+            self.itemconfig(self._oval, fill=bg_color)
+        if fg_color:
+            self._fg_color = fg_color
+            self.itemconfig(self._text, fill=fg_color)
+        if border_color:
+            self._border_color = border_color
+            self.itemconfig(self._oval, outline=border_color)
+
+
+# ── Pill Badge ───────────────────────────────────────────────────────────────
+
+def make_pill_badge(parent, text, bg=None, fg=None, font_key="xs_b", padx=8, pady=3):
+    """Creates a rounded pill-shaped badge with clean typography."""
+    return tk.Label(
+        parent,
+        text=text,
+        font=cfg.FONT[font_key],
+        bg=bg or cfg.C("card2"),
+        fg=fg or cfg.C("text2"),
+        padx=padx,
+        pady=pady,
+    )
+

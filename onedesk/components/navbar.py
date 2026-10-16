@@ -6,7 +6,7 @@ theme dropdown picker, and user profile chip.
 
 import tkinter as tk
 from .. import config as cfg
-from .ui_helpers import make_button, make_separator, Tooltip
+from .ui_helpers import make_button, make_separator, Tooltip, create_circular_avatar
 from .search_popup import SearchPopup
 
 _PLACEHOLDER = "Search notes, tasks, events…"
@@ -160,10 +160,25 @@ class AccountDropdown(tk.Toplevel):
         email = (self._auth.user.get("email", "") if self._auth and self._auth.user else "")
         if name or email:
             u_frame = tk.Frame(inner, bg=cfg.C("card"))
-            u_frame.pack(fill="x", padx=4, pady=(2, 6))
+            u_frame.pack(fill="x", padx=4, pady=(2, 8))
+
+            initials = "".join(p[0].upper() for p in name.split()[:2]) if name else "U"
+            av_path = getattr(self._auth, "avatar_path", "")
+            self._dropdown_avatar_img = create_circular_avatar(
+                image_path=av_path,
+                size=40,
+                text=initials,
+                bg=cfg.C("accent"),
+            )
+            av_lbl = tk.Label(u_frame, image=self._dropdown_avatar_img, bg=cfg.C("card"), bd=0)
+            av_lbl.pack(side="left", padx=(0, 10))
+
+            text_frame = tk.Frame(u_frame, bg=cfg.C("card"))
+            text_frame.pack(side="left", fill="both", expand=True)
+
             if name:
                 tk.Label(
-                    u_frame,
+                    text_frame,
                     text=name,
                     font=cfg.FONT["sm_b"],
                     bg=cfg.C("card"),
@@ -172,7 +187,7 @@ class AccountDropdown(tk.Toplevel):
                 ).pack(fill="x")
             if email:
                 tk.Label(
-                    u_frame,
+                    text_frame,
                     text=email,
                     font=cfg.FONT["xs"],
                     bg=cfg.C("card"),
@@ -422,20 +437,17 @@ class Navbar(tk.Frame):
             highlightthickness=1,
             highlightbackground=cfg.C("card"),
         )
-        self._account_btn.pack(side="left", pady=10)
+        self._account_btn.pack(side="left", pady=8)
 
         self._user_chip = tk.Label(
             self._account_btn,
-            text=self._avatar_text(),
-            font=cfg.FONT["xs_b"],
-            bg=cfg.C("accent"),
-            fg="#ffffff",
-            padx=9,
-            pady=4,
+            bg=cfg.C("card"),
             relief="flat",
+            bd=0,
             cursor="hand2",
         )
         self._user_chip.pack(side="left")
+        self._update_avatar_chip()
 
         from .ui_helpers import Tooltip
         self._tooltip = Tooltip(self._user_chip, "Account & Settings")
@@ -505,6 +517,19 @@ class Navbar(tk.Frame):
         initials = "".join(p[0].upper() for p in name.split()[:2]) if name else ""
         return initials if initials else "👤"
 
+    def _update_avatar_chip(self):
+        name = self._auth.display_name if self._auth else ""
+        initials = "".join(p[0].upper() for p in name.split()[:2]) if name else "U"
+        av_path = getattr(self._auth, "avatar_path", "")
+        self._user_avatar_img = create_circular_avatar(
+            image_path=av_path,
+            size=30,
+            text=initials,
+            bg=cfg.C("accent"),
+        )
+        if hasattr(self, "_user_chip") and self._user_chip.winfo_exists():
+            self._user_chip.configure(image=self._user_avatar_img, bg=cfg.C("card"))
+
     def _toggle_account_dropdown(self):
         if hasattr(self, "_tooltip") and self._tooltip:
             self._tooltip._hide(None)
@@ -543,29 +568,24 @@ class Navbar(tk.Frame):
                 highlightbackground=cfg.C("accent"),
                 bg=cfg.C("card2"),
             )
-            self._user_chip.configure(bg=cfg.C("accent"))
         else:
             self._account_btn.configure(
                 highlightbackground=cfg.C("card"),
                 bg=cfg.C("card"),
             )
-            self._user_chip.configure(bg=cfg.C("accent"))
 
     def _on_chip_hover(self, entering: bool):
         if self._settings_active:
             return
-        if not hasattr(self, "_user_chip") or not self._user_chip.winfo_exists():
+        if not hasattr(self, "_account_btn") or not self._account_btn.winfo_exists():
             return
         if entering:
-            self._user_chip.configure(bg=cfg.C("accent2"))
-            self._account_btn.configure(bg=cfg.C("card2"), highlightbackground=cfg.C("border"))
+            self._account_btn.configure(bg=cfg.C("card2"), highlightbackground=cfg.C("accent"))
         else:
-            self._user_chip.configure(bg=cfg.C("accent"))
             self._account_btn.configure(bg=cfg.C("card"), highlightbackground=cfg.C("card"))
 
     def refresh_user(self):
-        if hasattr(self, "_user_chip") and self._user_chip.winfo_exists():
-            self._user_chip.configure(text=self._avatar_text())
+        self._update_avatar_chip()
 
     # ---- Theme refresh ------------------------------------------------------
     def refresh_theme(self):
@@ -588,11 +608,7 @@ class Navbar(tk.Frame):
                     fg=cfg.C("text"),
                     activebackground=cfg.C("border"),
                 )
-            if hasattr(self, "_user_chip") and self._user_chip.winfo_exists():
-                self._user_chip.configure(
-                    bg=cfg.C("accent"),
-                    text=self._avatar_text(),
-                )
+            self._update_avatar_chip()
             if hasattr(self, "_account_btn") and self._account_btn.winfo_exists():
                 self._account_btn.configure(
                     bg=cfg.C("card2") if self._settings_active else cfg.C("card"),

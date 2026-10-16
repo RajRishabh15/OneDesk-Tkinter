@@ -1,51 +1,66 @@
 # OneDesk — Desktop Productivity App (Tkinter)
 
-A full-featured Python desktop app built with **Tkinter** — a personal productivity dashboard combining notes, tasks, a calendar, and analytics into one sleek native UI. All data is stored locally in `~/.onedesk_store.json` — no backend, no internet required.
+A modern, high-performance personal productivity desktop dashboard built with **Python 3.13** and **Tkinter**. OneDesk brings notes, tasks, calendar events, and account management into a single, cohesive desktop experience with bespoke themes and native Windows title bar integration.
+
+Supports a **hybrid persistence layer**: connect to an optional **MySQL** backend with connection pooling, or run completely offline with automatic zero-configuration **JSON storage**.
 
 ---
 
 ## Features
 
-- **Auth** — Login, signup, and 1-click **Instant Sign-in** demo (Alex Rivera)
-- **Dashboard** — Greeting, 4-stat strip, slim progress bar, pending tasks with quick-complete, today's events, recent notes strip — all minimal and modern
-- **Notes** — Grid view with search, category filters, pin/unpin, 5 colour labels, tags, edit, delete, export to `.txt`
-- **Tasks** — List view + Kanban board (Todo / In Progress / Completed), filter pills, inline quick-add, detailed modal
-- **Calendar** — Month, Week, and Day views with event and task-deadline markers; add/edit/delete events
-- **Analytics** — Embedded Matplotlib charts: weekly task velocity bar, priority pie, status breakdown, notes by category
-- **Settings** — Profile editing, theme cards (4 themes), JSON backup export & import, clear all data, sign out
-- **Global search** — Live search popup from the top navbar with keyboard navigation
-- **Collapsible sidebar** — Click the ⬡ logo, "OneDesk" text, or ◀/▶ chevron to toggle between full (210 px) and icon-only (58 px) mode with a smooth slide animation
-- **4 themes** — Midnight Purple 🌙, Rose Noir 🌹, Aqua Emerald 🌊, Lavender Light ☀ — cycled from the navbar or chosen in Settings
-- **Native title bar** — Windows 10/11 dark-mode title bar via DWM API matches the active theme
-- **Data seeding** — Fresh install seeds sample notes, tasks, and events so the dashboard is never empty on first look
+### 🔐 Authentication & Onboarding
+- **Segmented Auth Mode**: Symmetrical, high-contrast segmented control to switch seamlessly between **Sign In** and **Create Account**.
+- **Password Visibility Toggle**: Inline `👁 Show` / `🔒 Hide` button for password masking and unmasking.
+- **Top Theme Selector**: Change the application theme directly from the login/signup screen before signing in.
+- **Instant Demo Sign-in**: One-click demo login (`Alex Rivera`) seeded with realistic sample data for instant exploration.
+- **Security**: Passwords hashed with SHA-256 before storage; parameterised queries protect against SQL injection.
+
+### 📊 Dashboard (Revamped Fluid Design)
+- **Fluid Greeting Hero**: Features a circular user profile avatar with ring border, welcoming `"Welcome back, [Name] 👋"` in 22pt bold typography, live date, and contextual time-of-day focus indicator (Morning Focus / Afternoon Momentum / Evening Wrap-up). Clicking the avatar navigates directly to Settings.
+- **Inline Quick-Add**: Fluid task input and round `＋` action button right in the header for instantaneous frictionless task creation.
+- **6-Metric Stat Strip**: Round icon bubbles and live counts for Tasks, Done, Pending, Notes, Today's Events, plus a Completion Rate gauge with an active animated fill meter. Clicking any metric card instantly navigates to that section.
+- **3-Column Workspace**:
+  - **Pending Tasks**: Priority pill badges, category & due date metadata, and **dual round action buttons** (`✓` Complete & `✕` Delete) beside each task with hover animations and tooltips.
+  - **Today's Schedule**: Event cards with time badges and reminder bells.
+  - **Recent Notes**: Fluid colored note chips with category pills and pinned status indicators.
+- **Engaging Empty States**: Friendly celebratory icons and quick-create shortcuts when lists are clear.
+
+### 👤 Profile Picture & Account Management
+- **Custom Profile Picture**: Upload personal avatar images (PNG, JPG, JPEG, WEBP, BMP, GIF). Images are center-cropped and anti-aliased into high-resolution 256×256 circular portraits, saved to `~/.onedesk/avatars/`.
+- **Initials Fallback**: Automatic initials avatar generation with theme accent colors if no custom photo is chosen.
+- **Live Sync**: Profile photo updates dynamically reflect in real time across the Navbar chip, Account Dropdown, and Dashboard hero greeting card without needing an app restart.
+- **Photo Removal**: One-click photo removal button to revert to default initials avatar anytime.
+
+### 🧭 Navigation & Account Dropdown
+- **Collapsible Sidebar**: Clean side navigation focused strictly on workspace views (**Dashboard**, **Notes**, **Tasks**, **Calendar**). Animated toggle (210 px expanded ↔ 58 px icon-only mode) with smooth 10-step width transition.
+- **Top Navbar**: Global live search input with autocomplete popup overlay, `＋ Task` shortcut button, active theme dropdown menu, and circular user avatar chip.
+- **Account Dropdown**: Clicking the account avatar opens an anchored menu displaying user details (Name, Email, circular avatar preview), direct navigation to **Settings**, and **Log Out**.
+- **Settings View**: Accessible via the Account dropdown; manages profile avatar (upload & remove), display name, appearance theme cards, JSON backup export/import, data reset, and sign out.
+
+### 🎨 Design System & Theming
+- **4 Curated Color Themes**:
+  - 🌙 **Midnight Purple** (`#a855f7`) — Sleek deep dark mode with purple accents
+  - 🌹 **Rose Noir** (`#f43f5e`) — Velvet wine and crimson rose aesthetic
+  - 🌊 **Aqua Emerald** (`#06b6d4`) — Oceanic lagoon teal and mint highlights
+  - ☀ **Lavender Light** (`#7c3aed`) — Clean, crisp high-contrast light mode
+- **Native Windows Title Bar**: Dark mode synchronization using the Windows DWM (Desktop Window Manager) API via `ctypes`.
+- **High-DPI Awareness**: Clean font scaling and geometry on Windows 10/11 displays.
 
 ---
 
 ## Tech Stack
 
-| Layer      | Library            |
-|------------|--------------------|
-| UI         | Python 3.13 + Tkinter (stdlib) |
-| Charts     | `matplotlib` (TkAgg backend) |
-| Images     | `Pillow` (available for future use) |
-| Persistence| JSON file (`~/.onedesk_store.json`) |
-| Platform   | Windows DWM API via `ctypes` |
-
----
-
-## Getting Started
-
-### 1. Install dependencies
-```bash
-pip install -r requirements.txt
-```
-
-### 2. Run the app
-```bash
-python main.py
-```
-
-The window opens at 1280 × 820. Use **Instant Sign-in** on the login screen for a one-click demo.
+| Layer | Technology | Purpose |
+|---|---|---|
+| **Language** | Python 3.13 | Core runtime and logic |
+| **GUI Framework** | Tkinter (Python standard library) | Native cross-platform desktop UI components |
+| **Database** | MySQL 8.x (`mysql-connector-python`) | Connection pooling, relational storage, and parameterised queries |
+| **Fallback Persistence** | JSON (`~/.onedesk_store.json`) | Zero-setup local file storage with automatic fallback |
+| **Configuration** | `configparser` (`config.ini`) | Database host, port, credentials, and connection settings |
+| **Security** | Python `hashlib` | SHA-256 password hashing |
+| **Charts & Visuals** | `matplotlib` (TkAgg backend) | Embedded data plotting and analytics components |
+| **Image Handling** | `Pillow` (PIL) | Graphic and asset manipulation |
+| **Platform APIs** | Windows DWM API (`ctypes`) | Windows native title bar theming and DPI awareness |
 
 ---
 
@@ -53,67 +68,108 @@ The window opens at 1280 × 820. Use **Instant Sign-in** on the login screen for
 
 ```
 onedesk-tkinter/
-├── main.py                     # Root Tk window & view router, theme cycling
-├── requirements.txt
+├── main.py                     # Application entry point: root window, view routing, lifecycle
+├── config.ini                  # MySQL database configuration (host, user, password, database)
+├── setup_db.sql                # SQL schema initialization script (users, notes, tasks, events)
+├── requirements.txt            # Python dependencies (mysql-connector, matplotlib, Pillow)
+├── README.md                   # Project documentation
 └── onedesk/
-    ├── config.py               # Design tokens: 4 colour palettes, fonts, sizes, theme helpers
-    ├── storage.py              # JSON persistence (~/.onedesk_store.json)
-    ├── auth.py                 # User session, demo login, signup
-    ├── state.py                # Reactive DataStore (pub/sub) for Notes / Tasks / Events
-    ├── platform_helpers.py     # Windows DWM titlebar, DPI awareness, window centering
+    ├── __init__.py
+    ├── config.py               # Design tokens: 4 theme palettes, typography, dimensions
+    ├── db.py                   # MySQL connection pool, health check, and query helpers
+    ├── auth.py                 # Session manager: MySQL auth with automatic JSON fallback
+    ├── state.py                # Reactive DataStore with pub/sub listener architecture
+    ├── storage.py              # Local JSON persistence (~/.onedesk_store.json) & sample seeders
+    ├── platform_helpers.py     # Windows DWM titlebar theming, DPI scaling, window centering
     ├── components/
-    │   ├── sidebar.py          # Collapsible animated sidebar (icon-only ↔ full)
-    │   ├── navbar.py           # Top bar: search, quick-add, theme toggle, avatar
-    │   ├── search_popup.py     # Live global search overlay with keyboard nav
-    │   ├── card.py             # Themed card container
-    │   ├── modals.py           # Note / Task / Event dialogs + confirm dialog
-    │   └── ui_helpers.py       # Buttons, badges, entries, scrollable frame, separator
+    │   ├── __init__.py
+    │   ├── navbar.py           # Header bar: search, +task, theme dropdown, account dropdown
+    │   ├── sidebar.py          # Animated collapsible left sidebar (Workspace items)
+    │   ├── search_popup.py     # Global live search overlay with keyboard navigation
+    │   ├── card.py             # Reusable themed card container
+    │   ├── modals.py           # Note, Task, Event dialogs and confirmation modals
+    │   └── ui_helpers.py       # Custom buttons, entries, badges, scrollable frames, tooltips
     └── views/
-        ├── auth_view.py        # Login + Signup screen
-        ├── dashboard_view.py   # Minimal dashboard: stats, tasks, events, recent notes
-        ├── notes_view.py       # Notes grid, filters, pin, export
-        ├── tasks_view.py       # List + Kanban board with search filtering
-        ├── calendar_view.py    # Month / Week / Day calendar
-        ├── analytics_view.py   # Matplotlib embedded charts
-        └── settings_view.py    # Profile, theme cards, backup, sign out
+        ├── __init__.py
+        ├── auth_view.py        # Login / Signup screen with theme selector & password toggle
+        ├── dashboard_view.py   # Overview dashboard with greeting banner, stats strip, 3 columns
+        ├── notes_view.py       # Notes grid, color labels, category filtering, search, export
+        ├── tasks_view.py       # Task list & Kanban board (Todo / In Progress / Completed)
+        ├── calendar_view.py    # Month, Week, and Day calendar views
+        ├── settings_view.py    # Profile editing, theme cards, backup export/import, reset
+        └── analytics_view.py   # Embedded Matplotlib charts (available component)
 ```
 
 ---
 
-## Sidebar Collapse
+## Getting Started
 
-| State     | Width | How to toggle |
-|-----------|-------|---------------|
-| Expanded  | 210 px | Click ⬡ logo, "OneDesk" text, or **◀** chevron |
-| Collapsed | 58 px  | Click ⬡ icon or **▶** chevron; nav icons remain fully clickable |
+### 1. Prerequisites
+- Python 3.10+ (tested on Python 3.13)
+- Windows 10/11 recommended for native title bar styling
 
-The animation runs in 10 steps over ~140 ms.
+### 2. Installation
+Clone the repository and install the dependencies:
+```bash
+git clone https://github.com/RajRishabh15/OneDesk-Tkinter.git
+cd OneDesk-Tkinter
+pip install -r requirements.txt
+```
 
----
+### 3. Launching the App
+Run the application:
+```bash
+python main.py
+```
 
-## Themes
-
-| Key     | Name            | Icon | Primary colour |
-|---------|-----------------|------|----------------|
-| `dark`  | Midnight Purple | 🌙   | `#a855f7`      |
-| `rose`  | Rose Noir       | 🌹   | `#f43f5e`      |
-| `aqua`  | Aqua Emerald    | 🌊   | `#06b6d4`      |
-| `light` | Lavender Light  | ☀    | `#7c3aed`      |
-
-Cycle themes via the icon button in the navbar, or pick one in **Settings → Theme**.
-
----
-
-## Data Storage
-
-All data lives in `~/.onedesk_store.json`. Use **Export Backup** in Settings to save a JSON snapshot, and **Import Backup** to restore it on any machine.
+Click **Instant Sign-in →** on the authentication screen to load the demo workspace immediately.
 
 ---
 
-## Notes
+## Database Configuration (Optional MySQL)
 
-- A fresh install seeds sample data (3 notes, 5 tasks, 4 events) so the dashboard is never empty.
-- Theme preference is persisted automatically.
-- The demo account (`alex@lifeos.workspace`) bypasses authentication for instant preview.
-- Requires **Windows** for native DWM titlebar styling; the app runs on other platforms but titlebar will be default.
+OneDesk includes dual-storage capability. By default, it operates **offline with local JSON storage** (`~/.onedesk_store.json`). If you wish to use a MySQL database backend:
 
+### Step 1: Set up MySQL Database
+Execute the database setup script in MySQL:
+```bash
+mysql -u root -p < setup_db.sql
+```
+This creates the `onedesk` database and tables (`users`, `notes`, `tasks`, `events`) with foreign keys and cascading deletes.
+
+### Step 2: Configure Credentials
+Edit [`config.ini`](file:///r:/onedesk-tkinter/config.ini) in the project root:
+```ini
+[mysql]
+host     = localhost
+port     = 3306
+user     = root
+password = YOUR_ACTUAL_PASSWORD
+database = onedesk
+```
+
+### Step 3: Run OneDesk
+Start `main.py`. OneDesk automatically tests the database connection via `onedesk/db.py`:
+- **If connected**: User accounts and authentication sync with MySQL.
+- **If disconnected / offline**: OneDesk seamlessly falls back to the JSON file store without crashing or interrupting the user.
+
+---
+
+## Navigation & Controls
+
+| Element | Interaction | Result |
+|---|---|---|
+| **Sidebar Collapse** | Click ⬡ logo or ◀ / ▶ chevron | Toggles between 210 px expanded and 58 px icon-only mode (~140 ms animation) |
+| **Theme Switcher** | Click **Theme ▾** in Navbar or Auth screen | Opens floating theme picker with preview swatches for all 4 themes |
+| **Account Menu** | Click user avatar chip in top navbar | Opens dropdown with user info, **Settings**, and **Log Out** |
+| **Global Search** | Click search bar or type query | Displays instant live search overlay across all notes, tasks, and events |
+| **Quick Add** | Click **＋ Task** in Navbar or Dashboard | Opens task creation modal from anywhere in the application |
+| **Backup / Restore** | Go to Account → Settings → Data Management | Export all data to JSON or restore an existing backup file |
+
+---
+
+## Keyboard Shortcuts
+
+- <kbd>Enter</kbd> (in Auth form fields): Advances focus from Name → Email → Password → Submits form
+- <kbd>Esc</kbd>: Closes active theme dropdown, account dropdown, or search popup
+- <kbd>Enter</kbd> (in Search bar): Navigates directly to the matched item in Notes

@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
     name          VARCHAR(100) NOT NULL,
     email         VARCHAR(150) NOT NULL UNIQUE,
     password_hash VARCHAR(128) NOT NULL,
+    avatar_path   VARCHAR(255) DEFAULT '',
     created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

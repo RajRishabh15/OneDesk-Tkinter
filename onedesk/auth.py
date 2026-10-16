@@ -15,9 +15,10 @@ except Exception:
     _USE_DB = False
 
 DEMO_USER = {
-    "id":    "demo-user-alex",
-    "name":  "Alex Rivera",
-    "email": "alex@lifeos.workspace",
+    "id":          "demo-user-alex",
+    "name":        "Alex Rivera",
+    "email":       "alex@lifeos.workspace",
+    "avatar_path": "",
 }
 
 
@@ -38,6 +39,9 @@ class AuthManager:
     @property
     def display_name(self):
         return self._user.get("name", "User") if self._user else "Guest"
+    @property
+    def avatar_path(self):
+        return self._user.get("avatar_path", "") if self._user else ""
 
     def demo_login(self) -> bool:
         self.error = ""
@@ -59,30 +63,48 @@ class AuthManager:
         self._user = None
         remove_data(KEYS.USER)
 
-    def update_profile(self, name: str = None, email: str = None) -> None:
+    def update_profile(self, name: str = None, email: str = None, avatar_path: str = None) -> None:
         if not self._user: return
         patch = {}
-        if name:  patch["name"]  = name
-        if email: patch["email"] = email
+        if name is not None:        patch["name"]        = name
+        if email is not None:       patch["email"]       = email
+        if avatar_path is not None: patch["avatar_path"] = avatar_path
         self._user = {**self._user, **patch}
         save_data(KEYS.USER, self._user)
         if _USE_DB:
-            _db.execute(
-                "UPDATE users SET name=%(n)s, email=%(e)s WHERE id=%(i)s",
-                {"n": self._user["name"], "e": self._user["email"], "i": self._user["id"]}
-            )
+            try:
+                _db.execute(
+                    "UPDATE users SET name=%(n)s, email=%(e)s, avatar_path=%(a)s WHERE id=%(i)s",
+                    {"n": self._user["name"], "e": self._user["email"], "a": self._user.get("avatar_path", ""), "i": self._user["id"]}
+                )
+            except Exception:
+                try:
+                    _db.execute(
+                        "UPDATE users SET name=%(n)s, email=%(e)s WHERE id=%(i)s",
+                        {"n": self._user["name"], "e": self._user["email"], "i": self._user["id"]}
+                    )
+                except Exception:
+                    pass
         else:
             users = load_data(KEYS.USERS, [])
             save_data(KEYS.USERS, [{**u, **patch} if u["id"] == self._user["id"] else u for u in users])
 
     # ── DB helpers ──────────────────────────────────────────────────────
     def _login_db(self, email, password):
-        rows = _db.query("SELECT id,name,email,password_hash FROM users WHERE email=%(e)s", {"e": email})
+        try:
+            rows = _db.query("SELECT id,name,email,password_hash,avatar_path FROM users WHERE email=%(e)s", {"e": email})
+        except Exception:
+            rows = _db.query("SELECT id,name,email,password_hash FROM users WHERE email=%(e)s", {"e": email})
         if not rows or rows[0]["password_hash"] != _hash(password):
             self.error = "Email or password is incorrect."
             return False
         u = rows[0]
-        public = {"id": u["id"], "name": u["name"], "email": u["email"]}
+        public = {
+            "id": u["id"],
+            "name": u["name"],
+            "email": u["email"],
+            "avatar_path": u.get("avatar_path", ""),
+        }
         self._user = public
         save_data(KEYS.USER, public)
         return True
@@ -96,7 +118,7 @@ class AuthManager:
             "INSERT INTO users (id,name,email,password_hash) VALUES (%(i)s,%(n)s,%(e)s,%(p)s)",
             {"i": uid, "n": name, "e": email, "p": _hash(password)}
         )
-        public = {"id": uid, "name": name, "email": email}
+        public = {"id": uid, "name": name, "email": email, "avatar_path": ""}
         self._user = public
         save_data(KEYS.USER, public)
         return True
@@ -108,7 +130,12 @@ class AuthManager:
         if not match:
             self.error = "Email or password is incorrect."
             return False
-        public = {"id": match["id"], "name": match["name"], "email": match["email"]}
+        public = {
+            "id": match["id"],
+            "name": match["name"],
+            "email": match["email"],
+            "avatar_path": match.get("avatar_path", ""),
+        }
         self._user = public
         save_data(KEYS.USER, public)
         return True
@@ -118,9 +145,15 @@ class AuthManager:
         if any(u["email"] == email for u in users):
             self.error = "An account with this email already exists."
             return False
-        new_user = {"id": str(uuid.uuid4()), "name": name, "email": email, "passwordHash": _hash(password)}
+        new_user = {
+            "id": str(uuid.uuid4()),
+            "name": name,
+            "email": email,
+            "passwordHash": _hash(password),
+            "avatar_path": "",
+        }
         save_data(KEYS.USERS, [*users, new_user])
-        public = {"id": new_user["id"], "name": name, "email": email}
+        public = {"id": new_user["id"], "name": name, "email": email, "avatar_path": ""}
         self._user = public
         save_data(KEYS.USER, public)
         return True
