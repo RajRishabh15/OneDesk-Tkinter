@@ -183,6 +183,7 @@ class OneDeskApp:
                 self._content_area,
                 store=self._store,
                 auth=self._auth,
+                on_navigate=self._navigate,
                 bg=cfg.C("bg"),
             )
         else:
@@ -207,6 +208,8 @@ class OneDeskApp:
     def _on_profile_updated(self):
         if self._navbar_ref:
             self._navbar_ref.refresh_user()
+        if hasattr(self, "_content") and hasattr(self._content, "_refresh"):
+            self._content._refresh()
 
     # ── Theme toggle ─────────────────────────────────────────────────────────
     def _toggle_theme(self, theme_name: str = None, mode: str = None):

@@ -4,10 +4,13 @@ Profile management, theme toggle, JSON backup export/import, data reset, sign ou
 """
 
 import json
+import os
+from pathlib import Path
+from PIL import Image
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from .. import config as cfg
-from ..components.ui_helpers import make_button, make_separator, make_entry
+from ..components.ui_helpers import make_button, make_separator, make_entry, create_circular_avatar
 from ..components.modals import confirm
 
 
@@ -44,8 +47,65 @@ class SettingsView(tk.Frame):
         make_separator(inner, bg=cfg.C("border")).pack(fill="x", padx=pad, pady=8)
 
         # ── Profile section ───────────────────────────────────────────────
-        self._section(inner, "👤  Profile")
+        self._section(inner, "👤  Profile & Avatar")
         profile_card = self._card(inner)
+
+        # Avatar preview and actions
+        av_row = tk.Frame(profile_card, bg=cfg.C("card"))
+        av_row.pack(fill="x", pady=(0, 14))
+
+        self._avatar_preview_lbl = tk.Label(av_row, bg=cfg.C("card"), cursor="hand2")
+        self._avatar_preview_lbl.pack(side="left", padx=(0, 16))
+        self._avatar_preview_lbl.bind("<Button-1>", lambda _: self._upload_picture())
+
+        av_actions = tk.Frame(av_row, bg=cfg.C("card"))
+        av_actions.pack(side="left", fill="y", expand=True)
+
+        tk.Label(
+            av_actions,
+            text="Profile Picture",
+            font=cfg.FONT["sm_b"],
+            bg=cfg.C("card"),
+            fg=cfg.C("text"),
+            anchor="w",
+        ).pack(anchor="w")
+
+        tk.Label(
+            av_actions,
+            text="Upload a custom photo (PNG, JPG, WEBP). Cropped to a clean circle.",
+            font=cfg.FONT["xs"],
+            bg=cfg.C("card"),
+            fg=cfg.C("text3"),
+            anchor="w",
+        ).pack(anchor="w", pady=(2, 8))
+
+        btn_box = tk.Frame(av_actions, bg=cfg.C("card"))
+        btn_box.pack(anchor="w")
+
+        make_button(
+            btn_box,
+            "📷 Upload Photo",
+            command=self._upload_picture,
+            variant="primary",
+            font=cfg.FONT["xs_b"],
+            padx=10,
+            pady=4,
+        ).pack(side="left", padx=(0, 8))
+
+        self._remove_av_btn = make_button(
+            btn_box,
+            "✕ Remove",
+            command=self._remove_picture,
+            variant="secondary",
+            font=cfg.FONT["xs_b"],
+            padx=10,
+            pady=4,
+        )
+        self._remove_av_btn.pack(side="left")
+
+        self._refresh_avatar_preview()
+
+        make_separator(profile_card, bg=cfg.C("border")).pack(fill="x", pady=(0, 12))
 
         name_row = tk.Frame(profile_card, bg=cfg.C("card"))
         name_row.pack(fill="x", pady=(0, 8))
@@ -175,10 +235,73 @@ class SettingsView(tk.Frame):
         return card
 
     # ── Actions ──────────────────────────────────────────────────────────────
+    def _refresh_avatar_preview(self):
+        name = self._auth.display_name or "U"
+        initials = "".join(p[0].upper() for p in name.split()[:2]) or "U"
+        av_path = getattr(self._auth, "avatar_path", "")
+        self._avatar_preview_img = create_circular_avatar(
+            image_path=av_path,
+            size=68,
+            text=initials,
+            bg=cfg.C("accent"),
+        )
+        if hasattr(self, "_avatar_preview_lbl") and self._avatar_preview_lbl.winfo_exists():
+            self._avatar_preview_lbl.configure(image=self._avatar_preview_img)
+        if hasattr(self, "_remove_av_btn") and self._remove_av_btn.winfo_exists():
+            if av_path and os.path.exists(av_path):
+                self._remove_av_btn.pack(side="left")
+            else:
+                self._remove_av_btn.pack_forget()
+
+    def _upload_picture(self):
+        filetypes = [
+            ("Image files", "*.png;*.jpg;*.jpeg;*.webp;*.bmp;*.gif"),
+            ("All files", "*.*"),
+        ]
+        src_path = filedialog.askopenfilename(
+            title="Choose Profile Picture",
+            filetypes=filetypes,
+        )
+        if not src_path:
+            return
+
+        try:
+            av_dir = Path(os.path.expanduser("~")) / ".onedesk" / "avatars"
+            av_dir.mkdir(parents=True, exist_ok=True)
+            uid = self._auth.user.get("id", "user") if self._auth.user else "user"
+            dest_path = str(av_dir / f"avatar_{uid}.png")
+
+            im = Image.open(src_path).convert("RGBA")
+            w, h = im.size
+            min_dim = min(w, h)
+            left = (w - min_dim) // 2
+            top = (h - min_dim) // 2
+            im = im.crop((left, top, left + min_dim, top + min_dim))
+            im = im.resize((256, 256), Image.Resampling.LANCZOS)
+            im.save(dest_path, "PNG")
+
+            self._auth.update_profile(avatar_path=dest_path)
+            self._refresh_avatar_preview()
+            self._save_feedback.configure(text="✓ Profile picture updated!")
+            self.after(2000, lambda: self._save_feedback.configure(text=""))
+            if self._on_profile_updated:
+                self._on_profile_updated()
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to set profile picture:\n{e}")
+
+    def _remove_picture(self):
+        self._auth.update_profile(avatar_path="")
+        self._refresh_avatar_preview()
+        self._save_feedback.configure(text="✓ Profile picture removed.")
+        self.after(2000, lambda: self._save_feedback.configure(text=""))
+        if self._on_profile_updated:
+            self._on_profile_updated()
+
     def _save_profile(self):
         new_name = self._name_var.get().strip()
         if new_name:
             self._auth.update_profile(name=new_name)
+            self._refresh_avatar_preview()
             self._save_feedback.configure(text="✓ Profile saved!")
             self.after(1800, lambda: self._save_feedback.configure(text=""))
             if self._on_profile_updated:

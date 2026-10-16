@@ -15,31 +15,27 @@ Supports a **hybrid persistence layer**: connect to an optional **MySQL** backen
 - **Instant Demo Sign-in**: One-click demo login (`Alex Rivera`) seeded with realistic sample data for instant exploration.
 - **Security**: Passwords hashed with SHA-256 before storage; parameterised queries protect against SQL injection.
 
-### 📊 Dashboard
-- **Greeting Banner**: Modern 2-line header featuring `"Welcome back, [Name] 👋"` in 20pt bold typography and a contextual date & time period label (Morning / Afternoon / Evening).
-- **Inline Quick-Add**: Add a task immediately from the dashboard header without opening dialogs.
-- **Overview Strip**: 6-pill horizontal metric bar highlighting Pending tasks, High-Priority items, Due Today items, Total task count, Completed count, and an active progress bar.
-- **3-Column Workspace**: Side-by-side overview layout presenting **Tasks**, **Today's Events**, and **Recent Notes** at a glance without clutter or heavy scrolling.
+### 📊 Dashboard (Revamped Fluid Design)
+- **Fluid Greeting Hero**: Features a circular user profile avatar with ring border, welcoming `"Welcome back, [Name] 👋"` in 22pt bold typography, live date, and contextual time-of-day focus indicator (Morning Focus / Afternoon Momentum / Evening Wrap-up). Clicking the avatar navigates directly to Settings.
+- **Inline Quick-Add**: Fluid task input and round `＋` action button right in the header for instantaneous frictionless task creation.
+- **6-Metric Stat Strip**: Round icon bubbles and live counts for Tasks, Done, Pending, Notes, Today's Events, plus a Completion Rate gauge with an active animated fill meter. Clicking any metric card instantly navigates to that section.
+- **3-Column Workspace**:
+  - **Pending Tasks**: Priority pill badges, category & due date metadata, and **dual round action buttons** (`✓` Complete & `✕` Delete) beside each task with hover animations and tooltips.
+  - **Today's Schedule**: Event cards with time badges and reminder bells.
+  - **Recent Notes**: Fluid colored note chips with category pills and pinned status indicators.
+- **Engaging Empty States**: Friendly celebratory icons and quick-create shortcuts when lists are clear.
 
-### 📝 Notes
-- **Card Grid Layout**: Visual cards with color coding (Violet, Cyan, Green, Amber, Rose).
-- **Organization**: Category filters (All, Work, Personal, College), multi-tag support, and Pin / Unpin capability.
-- **Search & Export**: Real-time title/content search and one-click export to plain text (`.txt`).
-
-### ✔ Tasks & Kanban Board
-- **Dual Views**: Switch between a structured **List View** and an interactive **Kanban Board** (Todo, In Progress, Completed).
-- **Task Management**: Priority flags (High, Medium, Low), due dates, category tags, inline completion checkboxes, and quick-add modal.
-
-### 📅 Calendar
-- **Multi-View Modes**: Month, Week, and Day calendar views.
-- **Event & Deadline Tracking**: Displays scheduled calendar events and deadline markers for tasks due on that date.
-- **Event Modal**: Add, inspect, and remove events with reminder flags.
+### 👤 Profile Picture & Account Management
+- **Custom Profile Picture**: Upload personal avatar images (PNG, JPG, JPEG, WEBP, BMP, GIF). Images are center-cropped and anti-aliased into high-resolution 256×256 circular portraits, saved to `~/.onedesk/avatars/`.
+- **Initials Fallback**: Automatic initials avatar generation with theme accent colors if no custom photo is chosen.
+- **Live Sync**: Profile photo updates dynamically reflect in real time across the Navbar chip, Account Dropdown, and Dashboard hero greeting card without needing an app restart.
+- **Photo Removal**: One-click photo removal button to revert to default initials avatar anytime.
 
 ### 🧭 Navigation & Account Dropdown
 - **Collapsible Sidebar**: Clean side navigation focused strictly on workspace views (**Dashboard**, **Notes**, **Tasks**, **Calendar**). Animated toggle (210 px expanded ↔ 58 px icon-only mode) with smooth 10-step width transition.
-- **Top Navbar**: Global live search input with autocomplete popup overlay, `＋ Task` shortcut button, active theme dropdown menu, and user avatar chip.
-- **Account Dropdown**: Clicking the account avatar opens an anchored menu displaying user details (Name & Email), direct navigation to **Settings**, and **Log Out**.
-- **Settings View**: Accessible via the Account dropdown; manages display name, appearance theme cards, JSON backup export/import, data reset, and sign out.
+- **Top Navbar**: Global live search input with autocomplete popup overlay, `＋ Task` shortcut button, active theme dropdown menu, and circular user avatar chip.
+- **Account Dropdown**: Clicking the account avatar opens an anchored menu displaying user details (Name, Email, circular avatar preview), direct navigation to **Settings**, and **Log Out**.
+- **Settings View**: Accessible via the Account dropdown; manages profile avatar (upload & remove), display name, appearance theme cards, JSON backup export/import, data reset, and sign out.
 
 ### 🎨 Design System & Theming
 - **4 Curated Color Themes**:
