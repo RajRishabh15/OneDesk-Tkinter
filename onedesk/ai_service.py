@@ -14,7 +14,7 @@ import urllib.request
 from datetime import date, datetime, timedelta
 from .storage import load_data, save_data, KEYS
 
-DEFAULT_GEMINI_MODEL = "gemini-1.5-flash"
+DEFAULT_GEMINI_MODEL = "gemini-flash-latest"
 
 
 def get_gemini_api_key() -> str:
@@ -76,7 +76,7 @@ def test_gemini_connection(api_key: str, model: str = None) -> tuple[bool, str]:
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=15) as resp:
             if resp.status == 200:
                 return True, f"Connected successfully to {model_name}!"
             return False, f"Unexpected response status: {resp.status}"
@@ -204,7 +204,7 @@ Rules:
         method="POST",
     )
 
-    with urllib.request.urlopen(req, timeout=18) as resp:
+    with urllib.request.urlopen(req, timeout=25) as resp:
         body = json.loads(resp.read().decode("utf-8"))
 
     raw_text = ""

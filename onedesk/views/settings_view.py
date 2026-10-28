@@ -5,6 +5,7 @@ Profile management, theme toggle, JSON backup export/import, data reset, sign ou
 
 import json
 import os
+import webbrowser
 from pathlib import Path
 from PIL import Image
 import tkinter as tk
@@ -369,6 +370,30 @@ class SettingsView(tk.Frame):
             justify="left",
         ).pack(anchor="w", pady=(0, 10))
 
+        # Free API Key Link Box
+        key_help_box = tk.Frame(parent, bg=cfg.C("card2"), highlightthickness=1, highlightbackground=cfg.C("border"), padx=12, pady=10)
+        key_help_box.pack(fill="x", pady=(0, 12))
+
+        tk.Label(
+            key_help_box,
+            text="Need a key? Google AI Studio offers free Gemini API access with generous limits (15 RPM) and no credit card required.",
+            font=cfg.FONT["xs"],
+            bg=cfg.C("card2"),
+            fg=cfg.C("text2"),
+            wraplength=620,
+            justify="left",
+        ).pack(anchor="w")
+
+        make_button(
+            key_help_box,
+            text="🔗 Get Free Gemini API Key (Google AI Studio)",
+            command=lambda: webbrowser.open_new_tab("https://aistudio.google.com/app/apikey"),
+            variant="secondary",
+            font=cfg.FONT["xs_b"],
+            padx=10,
+            pady=3,
+        ).pack(anchor="w", pady=(6, 0))
+
         # API Key Row
         tk.Label(parent, text="Gemini API Key", font=cfg.FONT["xs_b"], bg=cfg.C("card"), fg=cfg.C("text2")).pack(anchor="w")
 
@@ -421,7 +446,7 @@ class SettingsView(tk.Frame):
         m_frame = tk.Frame(parent, bg=cfg.C("card"))
         m_frame.pack(anchor="w", pady=(0, 8))
 
-        for m_name in ["gemini-1.5-flash", "gemini-2.0-flash"]:
+        for m_name in ["gemini-flash-latest", "gemini-3.8-flash", "gemini-3.5-flash"]:
             tk.Radiobutton(
                 m_frame,
                 text=m_name,
