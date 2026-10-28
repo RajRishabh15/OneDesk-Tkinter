@@ -17,10 +17,11 @@ ANIM_MS     = 14
 
 class Sidebar(tk.Frame):
     NAV_ITEMS = [
-        ("Dashboard", "⊞"),
-        ("Notes",     "📝"),
-        ("Tasks",     "✔"),
-        ("Calendar",  "📅"),
+        ("Dashboard",    "⊞"),
+        ("AI Assistant", "🤖"),
+        ("Notes",        "📝"),
+        ("Tasks",        "✔"),
+        ("Calendar",     "📅"),
     ]
 
     def __init__(self, parent, on_navigate, **kw):

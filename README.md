@@ -25,6 +25,14 @@ Supports a **hybrid persistence layer**: connect to an optional **MySQL** backen
   - **Recent Notes**: Fluid colored note chips with category pills and pinned status indicators.
 - **Engaging Empty States**: Friendly celebratory icons and quick-create shortcuts when lists are clear.
 
+### 🤖 AI Personal Assistant (Google Gemini)
+- **Natural Language Command Center**: Understands multi-action instructions (e.g. *"Add a note saying I have a meeting at 9 PM, schedule the meeting in my calendar, and add a task to prepare dinner by 10 PM"*).
+- **Google Gemini Engine**: Direct REST API integration with `gemini-1.5-flash` and `gemini-2.0-flash` with zero extra dependencies required.
+- **Built-in Offline Smart NLP Fallback**: Functions seamlessly even without an API key or when offline using intelligent rule-based parsing.
+- **Action Preview & Confirmation Flow**: Previews planned notes, tasks, and calendar events as interactive cards with individual and bulk `"✓ Confirm & Execute All"` buttons.
+- **Non-blocking Architecture**: Worker thread offloading ensures the Tkinter desktop UI stays 100% fluid and responsive during network calls.
+- **Dedicated Settings Panel**: Configure Gemini API Key, select models, and run live connection tests directly from Settings.
+
 ### 👤 Profile Picture & Account Management
 - **Custom Profile Picture**: Upload personal avatar images (PNG, JPG, JPEG, WEBP, BMP, GIF). Images are center-cropped and anti-aliased into high-resolution 256×256 circular portraits, saved to `~/.onedesk/avatars/`.
 - **Initials Fallback**: Automatic initials avatar generation with theme accent colors if no custom photo is chosen.
@@ -87,6 +95,8 @@ onedesk-tkinter/
     ├── state.py                # Reactive DataStore with pub/sub listener architecture
     ├── storage.py              # Local JSON persistence (~/.onedesk_store.json) & sample seeders
     ├── importers.py            # Multi-format parsers for importing Notes, Tasks, and Events
+    ├── ai_service.py           # Google Gemini AI action planner & offline smart NLP engine
+    ├── ai_actions.py           # Validates and executes planned actions on DataStore
     ├── platform_helpers.py     # Windows DWM titlebar theming, DPI scaling, window centering
     ├── components/
     │   ├── __init__.py
@@ -100,10 +110,11 @@ onedesk-tkinter/
         ├── __init__.py
         ├── auth_view.py        # Login / Signup screen with theme selector & password toggle
         ├── dashboard_view.py   # Overview dashboard with greeting banner, stats strip, 3 columns
+        ├── ai_view.py          # AI Personal Assistant chat interface & action confirmation
         ├── notes_view.py       # Notes grid, color labels, category filtering, search, export
         ├── tasks_view.py       # Task list & Kanban board (Todo / In Progress / Completed)
         ├── calendar_view.py    # Month, Week, and Day calendar views
-        ├── settings_view.py    # Profile editing, theme cards, backup export/import, reset
+        ├── settings_view.py    # Profile editing, Gemini AI setup, theme cards, backup reset
         └── analytics_view.py   # Embedded Matplotlib charts (available component)
 ```
 

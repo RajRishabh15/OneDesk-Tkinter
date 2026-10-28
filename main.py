@@ -18,14 +18,16 @@ from onedesk.views.notes_view import NotesView
 from onedesk.views.tasks_view import TasksView
 from onedesk.views.calendar_view import CalendarView
 from onedesk.views.settings_view import SettingsView
+from onedesk.views.ai_view import AIView
 
 
 VIEW_MAP = {
-    "Dashboard": DashboardView,
-    "Notes":     NotesView,
-    "Tasks":     TasksView,
-    "Calendar":  CalendarView,
-    "Settings":  SettingsView,
+    "Dashboard":    DashboardView,
+    "AI Assistant": AIView,
+    "Notes":        NotesView,
+    "Tasks":        TasksView,
+    "Calendar":     CalendarView,
+    "Settings":     SettingsView,
 }
 
 
@@ -180,6 +182,14 @@ class OneDeskApp:
             )
         elif view_name in ("Dashboard",):
             self._content = DashboardView(
+                self._content_area,
+                store=self._store,
+                auth=self._auth,
+                on_navigate=self._navigate,
+                bg=cfg.C("bg"),
+            )
+        elif view_name in ("AI Assistant",):
+            self._content = AIView(
                 self._content_area,
                 store=self._store,
                 auth=self._auth,

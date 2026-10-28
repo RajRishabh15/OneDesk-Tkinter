@@ -309,9 +309,10 @@ class Tooltip:
         widget.bind("<Leave>", self._hide)
 
     def _show(self, _):
-        x, y, _, _ = self._widget.bbox("insert") if hasattr(self._widget, "bbox") else (0, 0, 0, 0)
-        x += self._widget.winfo_rootx() + 20
-        y += self._widget.winfo_rooty() + 20
+        bbox = self._widget.bbox("insert") if hasattr(self._widget, "bbox") else None
+        bx, by = (bbox[0], bbox[1]) if bbox else (0, 0)
+        x = self._widget.winfo_rootx() + bx + 20
+        y = self._widget.winfo_rooty() + by + 20
         self._tip = tw = tk.Toplevel(self._widget)
         tw.wm_overrideredirect(True)
         tw.wm_geometry(f"+{x}+{y}")
