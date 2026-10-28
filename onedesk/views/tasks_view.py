@@ -23,6 +23,9 @@ class TasksView(tk.Frame):
         self._filter       = "All"
         self._view         = "list"   # "list" | "kanban"
         self._search_query = ""
+        self._drag = None
+        self._kanban_columns = {}
+        self._drag_preview = None
 
         self._store.subscribe(self._refresh)
         self._build()
@@ -225,6 +228,7 @@ class TasksView(tk.Frame):
 
     # ── Kanban View ───────────────────────────────────────────────────────────
     def _render_kanban(self):
+        self._kanban_columns = {}
         col_frame = tk.Frame(self._body, bg=cfg.C("bg"))
         col_frame.pack(fill="both", expand=True, padx=cfg.PAD, pady=cfg.PAD)
 
@@ -238,6 +242,7 @@ class TasksView(tk.Frame):
             col = tk.Frame(col_frame, bg=cfg.C("card"),
                             highlightthickness=1, highlightbackground=cfg.C("border"))
             col.grid(row=0, column=i, padx=6, sticky="nsew")
+            self._kanban_columns[status] = col
             col_frame.columnconfigure(i, weight=1)
 
             # Column header
@@ -254,12 +259,13 @@ class TasksView(tk.Frame):
             inner = scroll.inner
 
             for task in tasks_in_col:
-                self._make_kanban_card(inner, task)
+                self._make_kanban_card(inner, task, status)
 
-    def _make_kanban_card(self, parent, task: dict):
+    def _make_kanban_card(self, parent, task: dict, status: str):
         card = tk.Frame(parent, bg=cfg.C("bg"),
                          highlightthickness=1, highlightbackground=cfg.C("border"))
         card.pack(fill="x", pady=4)
+        card.configure(cursor="fleur")
         inner = tk.Frame(card, bg=cfg.C("bg"), padx=12, pady=10)
         inner.pack(fill="x")
 
@@ -308,6 +314,99 @@ class TasksView(tk.Frame):
             relief="flat", cursor="hand2",
             command=lambda t=task: self._open_edit(t),
         ).pack(side="right")
+
+        # Bind the whole card so its labels and empty space can start a drag.
+        self._bind_card_drag(card, task["id"], status)
+
+    def _bind_card_drag(self, widget, task_id: str, source_status: str):
+        widget.bind("<ButtonPress-1>",
+                    lambda event, tid=task_id, src=source_status: self._drag_start(event, tid, src),
+                    add="+")
+        widget.bind("<B1-Motion>", self._drag_motion, add="+")
+        widget.bind("<ButtonRelease-1>", self._drag_release, add="+")
+        for child in widget.winfo_children():
+            self._bind_card_drag(child, task_id, source_status)
+
+    def _drag_start(self, event, task_id: str, source_status: str):
+        self._drag = {
+            "task_id": task_id,
+            "source": source_status,
+            "x": event.x_root,
+            "y": event.y_root,
+            "active": False,
+            "target": None,
+        }
+
+    def _drag_motion(self, event):
+        if not self._drag:
+            return
+        drag = self._drag
+        if not drag["active"]:
+            if abs(event.x_root - drag["x"]) + abs(event.y_root - drag["y"]) < 8:
+                return
+            drag["active"] = True
+            self._show_drag_preview(drag["task_id"], event.x_root, event.y_root)
+        elif self._drag_preview is not None:
+            self._drag_preview.geometry(f"+{event.x_root + 14}+{event.y_root + 14}")
+        target = None
+        for status, column in self._kanban_columns.items():
+            left, top = column.winfo_rootx(), column.winfo_rooty()
+            if left <= event.x_root < left + column.winfo_width() and top <= event.y_root < top + column.winfo_height():
+                target = status
+                break
+        drag["target"] = target
+        for status, column in self._kanban_columns.items():
+            column.configure(highlightbackground=(cfg.C("accent") if status == target else cfg.C("border")))
+
+    def _drag_release(self, _event):
+        drag, self._drag = self._drag, None
+        if not drag:
+            return
+        self._hide_drag_preview()
+        for column in self._kanban_columns.values():
+            try:
+                column.configure(highlightbackground=cfg.C("border"))
+            except tk.TclError:
+                pass
+        if drag["active"]:
+            target = drag["target"]
+            if target and target != drag["source"]:
+                self._store.set_task_status(drag["task_id"], target)
+            return "break"
+
+    def _show_drag_preview(self, task_id: str, x: int, y: int):
+        task = next((item for item in self._store.tasks if item.get("id") == task_id), None)
+        if not task:
+            return
+        preview = tk.Toplevel(self)
+        preview.overrideredirect(True)
+        preview.attributes("-topmost", True)
+        preview.geometry(f"260x76+{x + 14}+{y + 14}")
+        preview.configure(bg=cfg.C("bg"))
+        preview.attributes("-alpha", 0.88)
+        preview_frame = tk.Frame(
+            preview, bg=cfg.C("bg"), padx=12, pady=10,
+            highlightthickness=1, highlightbackground=cfg.C("accent"),
+        )
+        preview_frame.pack(fill="both", expand=True)
+        tk.Label(
+            preview_frame, text=task.get("title", ""), font=cfg.FONT["sm_b"],
+            bg=cfg.C("bg"), fg=cfg.C("text"), anchor="w",
+            wraplength=230,
+        ).pack(anchor="w")
+        tk.Label(
+            preview_frame, text=f"{task.get('priority', '')}  ·  {task.get('status', '')}",
+            font=cfg.FONT["xs"], bg=cfg.C("bg"), fg=cfg.C("text2"),
+        ).pack(anchor="w", pady=(4, 0))
+        self._drag_preview = preview
+
+    def _hide_drag_preview(self):
+        if self._drag_preview is not None:
+            try:
+                self._drag_preview.destroy()
+            except tk.TclError:
+                pass
+            self._drag_preview = None
 
     # ── Helpers ──────────────────────────────────────────────────────────────
     def _filtered_tasks(self):
