@@ -79,6 +79,30 @@ class DataStore:
         self._persist()
         self._notify()
 
+    def import_notes(self, notes_list: list[dict]) -> int:
+        count = 0
+        for n in reversed(notes_list):
+            title = str(n.get("title", "")).strip()
+            desc = str(n.get("description", "")).strip()
+            if not title and not desc:
+                continue
+            note = {
+                "id": str(uuid.uuid4()),
+                "title": title or "Untitled Note",
+                "description": desc,
+                "category": n.get("category", "General") or "General",
+                "tags": n.get("tags") if isinstance(n.get("tags"), list) else [],
+                "color": n.get("color", "violet") or "violet",
+                "pinned": bool(n.get("pinned", False)),
+                "createdAt": n.get("createdAt") or date.today().isoformat(),
+            }
+            self.notes.insert(0, note)
+            count += 1
+        if count:
+            self._persist()
+            self._notify()
+        return count
+
     # ── Tasks ────────────────────────────────────────────────────────────────
     def add_task(self, **fields) -> dict:
         task = {
@@ -135,6 +159,35 @@ class DataStore:
                 completedAt=date.today().isoformat(),
             )
 
+    def import_tasks(self, tasks_list: list[dict]) -> int:
+        count = 0
+        for t in reversed(tasks_list):
+            title = str(t.get("title", "")).strip()
+            if not title:
+                continue
+            prio = t.get("priority", "Medium")
+            if prio not in ("High", "Medium", "Low"):
+                prio = "Medium"
+            status = t.get("status", "Todo")
+            if status not in ("Todo", "In Progress", "Completed"):
+                status = "Todo"
+            task = {
+                "id": str(uuid.uuid4()),
+                "title": title,
+                "description": str(t.get("description", "")).strip(),
+                "priority": prio,
+                "dueDate": str(t.get("dueDate", date.today().isoformat())),
+                "status": status,
+                "category": str(t.get("category", "General") or "General"),
+                "completedAt": t.get("completedAt") if status == "Completed" else None,
+            }
+            self.tasks.insert(0, task)
+            count += 1
+        if count:
+            self._persist()
+            self._notify()
+        return count
+
     # ── Events ───────────────────────────────────────────────────────────────
     def add_event(self, **fields) -> dict:
         event = {
@@ -156,6 +209,27 @@ class DataStore:
         self.events = [e for e in self.events if e["id"] != event_id]
         self._persist()
         self._notify()
+
+    def import_events(self, events_list: list[dict]) -> int:
+        count = 0
+        for e in reversed(events_list):
+            title = str(e.get("title", "")).strip()
+            if not title:
+                continue
+            event = {
+                "id": str(uuid.uuid4()),
+                "title": title,
+                "date": str(e.get("date", date.today().isoformat())),
+                "time": str(e.get("time", "10:00")),
+                "reminder": bool(e.get("reminder", False)),
+                "description": str(e.get("description", "")).strip(),
+            }
+            self.events.insert(0, event)
+            count += 1
+        if count:
+            self._persist()
+            self._notify()
+        return count
 
     # ── Aggregates ───────────────────────────────────────────────────────────
     @property

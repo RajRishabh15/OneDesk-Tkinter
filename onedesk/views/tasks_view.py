@@ -3,13 +3,16 @@ OneDesk Tasks View — tasks_view.py
 List view with filter pills + inline add, and Kanban board view.
 """
 
+import os
 import tkinter as tk
+from tkinter import filedialog, messagebox
 from datetime import date
 from .. import config as cfg
 from ..components.ui_helpers import (
     make_button, make_separator, ScrollableFrame,
 )
 from ..components.modals import TaskDialog, confirm
+from ..importers import parse_tasks_file
 
 
 COLUMNS = ["Todo", "In Progress", "Completed"]
@@ -61,7 +64,20 @@ class TasksView(tk.Frame):
         pct       = self._store.completion_pct
         tk.Label(trow, text=f"  {completed}/{total} done ({pct}%) · {overdue} overdue",
                  font=cfg.FONT["sm"], bg=cfg.C("bg"), fg=cfg.C("text2")).pack(side="left", pady=(6, 0))
-        make_button(trow, text="+ New Task", command=self._open_new, variant="primary").pack(side="right")
+        t_btns = tk.Frame(trow, bg=cfg.C("bg"))
+        t_btns.pack(side="right")
+
+        make_button(
+            t_btns, text="📥 Import Tasks",
+            command=self._import_tasks,
+            variant="secondary",
+        ).pack(side="left", padx=(0, 8))
+
+        make_button(
+            t_btns, text="+ New Task",
+            command=self._open_new,
+            variant="primary",
+        ).pack(side="left")
 
         # Filter pills + search box + view toggle
         controls = tk.Frame(self._header, bg=cfg.C("bg"))
@@ -444,6 +460,42 @@ class TasksView(tk.Frame):
         def _save(fields, tid=task["id"]):
             self._store.update_task(tid, **fields)
         TaskDialog(self, on_save=_save, task=task)
+
+    def _import_tasks(self):
+        filetypes = [
+            ("Supported Task Files", "*.json;*.csv;*.txt;*.md"),
+            ("JSON files", "*.json"),
+            ("CSV files", "*.csv"),
+            ("Markdown & Text Checklists", "*.txt;*.md"),
+            ("All files", "*.*"),
+        ]
+        paths = filedialog.askopenfilenames(
+            title="Import Tasks",
+            filetypes=filetypes,
+        )
+        if not paths:
+            return
+
+        total_imported = 0
+        errors = []
+        for path in paths:
+            try:
+                tasks = parse_tasks_file(path)
+                count = self._store.import_tasks(tasks)
+                total_imported += count
+            except Exception as e:
+                errors.append(f"{os.path.basename(path)}: {e}")
+
+        if total_imported > 0:
+            msg = f"Successfully imported {total_imported} task{'s' if total_imported != 1 else ''} into OneDesk!"
+            if errors:
+                msg += "\n\nWarnings/Errors:\n" + "\n".join(errors)
+            messagebox.showinfo("Tasks Imported", msg)
+        else:
+            err_msg = "No valid tasks found to import."
+            if errors:
+                err_msg += "\n\nDetails:\n" + "\n".join(errors)
+            messagebox.showwarning("Import Tasks", err_msg)
 
     def _quick_add(self, _event=None):
         text = self._inline_var.get().strip()

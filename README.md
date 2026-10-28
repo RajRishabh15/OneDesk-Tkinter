@@ -37,6 +37,12 @@ Supports a **hybrid persistence layer**: connect to an optional **MySQL** backen
 - **Account Dropdown**: Clicking the account avatar opens an anchored menu displaying user details (Name, Email, circular avatar preview), direct navigation to **Settings**, and **Log Out**.
 - **Settings View**: Accessible via the Account dropdown; manages profile avatar (upload & remove), display name, appearance theme cards, JSON backup export/import, data reset, and sign out.
 
+### 📥 Multi-Format Importers
+- **Import Notes**: Ingest notes from **JSON**, **CSV**, **Markdown**, and **Text** files. Supports multi-file selection, automatic markdown header sectioning, tags, and category assignment.
+- **Import Tasks**: Ingest tasks from **JSON**, **CSV**, and **Markdown Checklists** (`- [ ]`, `- [x]`, numbered/bullet lists, priority tags like `(High)`, and category hashtags `#Work`).
+- **Import Calendar Activities**: Ingest events directly from standard **iCalendar (`.ics`)** files (Google Calendar, Outlook, Apple Calendar), **JSON**, or **CSV** files with automatic date, time, and reminder parsing.
+- **Dashboard Quick Import**: 1-click round import buttons directly on each workspace column header on the Dashboard.
+
 ### 🎨 Design System & Theming
 - **4 Curated Color Themes**:
   - 🌙 **Midnight Purple** (`#a855f7`) — Sleek deep dark mode with purple accents
@@ -80,6 +86,7 @@ onedesk-tkinter/
     ├── auth.py                 # Session manager: MySQL auth with automatic JSON fallback
     ├── state.py                # Reactive DataStore with pub/sub listener architecture
     ├── storage.py              # Local JSON persistence (~/.onedesk_store.json) & sample seeders
+    ├── importers.py            # Multi-format parsers for importing Notes, Tasks, and Events
     ├── platform_helpers.py     # Windows DWM titlebar theming, DPI scaling, window centering
     ├── components/
     │   ├── __init__.py

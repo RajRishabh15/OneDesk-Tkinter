@@ -3,11 +3,14 @@ OneDesk Calendar View — calendar_view.py
 Month, Week, and Day views with event/task markers and new-event dialog.
 """
 
+import os
 import tkinter as tk
+from tkinter import filedialog, messagebox
 from datetime import date, timedelta
 from .. import config as cfg
 from ..components.ui_helpers import make_button, make_separator, ScrollableFrame
 from ..components.modals import EventDialog, confirm
+from ..importers import parse_events_file
 
 WEEKDAYS  = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 MONTHS    = ["January", "February", "March", "April", "May", "June",
@@ -74,9 +77,11 @@ class CalendarView(tk.Frame):
         make_button(right, "Today",  command=self._today, variant="secondary").pack(side="left", padx=2)
         make_button(right, "Next →", command=self._next, variant="ghost").pack(side="left", padx=2)
 
+        make_button(right, "📥 Import Events", command=self._import_events, variant="secondary").pack(side="left", padx=(10, 2))
+
         make_button(right, "+ Event", command=lambda: EventDialog(
             self, self._on_add_event, default_date=self._cursor.isoformat()
-        ), variant="primary").pack(side="left", padx=(12, 0))
+        ), variant="primary").pack(side="left", padx=(2, 0))
 
         # View mode tabs
         tabs = tk.Frame(self._header, bg=cfg.C("bg"))
@@ -327,3 +332,39 @@ class CalendarView(tk.Frame):
     def _set_view(self, v: str):
         self._view = v
         self._refresh()
+
+    def _import_events(self):
+        filetypes = [
+            ("Supported Calendar Files", "*.ics;*.json;*.csv"),
+            ("iCalendar files", "*.ics"),
+            ("JSON files", "*.json"),
+            ("CSV files", "*.csv"),
+            ("All files", "*.*"),
+        ]
+        paths = filedialog.askopenfilenames(
+            title="Import Calendar Activities & Events",
+            filetypes=filetypes,
+        )
+        if not paths:
+            return
+
+        total_imported = 0
+        errors = []
+        for path in paths:
+            try:
+                events = parse_events_file(path)
+                count = self._store.import_events(events)
+                total_imported += count
+            except Exception as e:
+                errors.append(f"{os.path.basename(path)}: {e}")
+
+        if total_imported > 0:
+            msg = f"Successfully imported {total_imported} event/activit{'ies' if total_imported != 1 else 'y'} into OneDesk!"
+            if errors:
+                msg += "\n\nWarnings/Errors:\n" + "\n".join(errors)
+            messagebox.showinfo("Events Imported", msg)
+        else:
+            err_msg = "No valid calendar activities found to import."
+            if errors:
+                err_msg += "\n\nDetails:\n" + "\n".join(errors)
+            messagebox.showwarning("Import Events", err_msg)
