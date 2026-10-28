@@ -323,8 +323,9 @@ Because native Tkinter `tk.Button` elements cannot produce clean anti-aliased ci
 #### `make_pill_badge` & `make_badge`
 Creates styled labels with rounded visual margins, typography, and theme-aware colors for priorities (`High`, `Medium`, `Low`) and statuses (`Todo`, `In Progress`, `Completed`).
 
-#### `ScrollableFrame`
-Custom auto-scrolling container combining an outer `tk.Frame`, an embedded `tk.Canvas`, and a styled vertical `ttk.Scrollbar`. Automatically resizes internal window bindings (`<Configure>`) and handles cross-platform mouse wheel scrolling (`<MouseWheel>` on Windows/macOS, `<Button-4>`/`<Button-5>` on Linux).
+#### `ModernScrollbar` & `ScrollableFrame`
+- **`ModernScrollbar`**: Custom canvas-based fluid scrollbar widget replacing vintage OS scrollbars. Implements rounded pill geometry, 6px-to-8px hover expansion, accent color shifting on hover/drag, interactive track jumping, smooth scrub dragging, and smart auto-hiding when content doesn't overflow.
+- **`ScrollableFrame`**: Custom auto-scrolling container combining an outer `tk.Frame`, an embedded `tk.Canvas`, and the integrated `ModernScrollbar`. Automatically resizes internal window bindings (`<Configure>`), exposes `.canvas`, `.scrollbar`, `.scroll_to_top()`, and `.scroll_to_bottom()`, and handles cross-platform mouse wheel scrolling (`<MouseWheel>` on Windows/macOS, `<Button-4>`/`<Button-5>` on Linux).
 
 ### 5.2 Animated Collapsible Sidebar (`sidebar.py`)
 - **Smooth Width Transition**:
