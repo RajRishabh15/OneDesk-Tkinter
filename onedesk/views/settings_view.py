@@ -5,6 +5,7 @@ Profile management, theme toggle, JSON backup export/import, data reset, sign ou
 
 import json
 import os
+import webbrowser
 from pathlib import Path
 from PIL import Image
 import tkinter as tk
@@ -12,6 +13,8 @@ from tkinter import filedialog, messagebox
 from .. import config as cfg
 from ..components.ui_helpers import make_button, make_separator, make_entry, create_circular_avatar
 from ..components.modals import confirm
+from ..storage import KEYS, load_data, save_data
+from ..ai_service import get_gemini_api_key, get_gemini_model, test_gemini_connection
 
 
 class SettingsView(tk.Frame):
@@ -187,6 +190,11 @@ class SettingsView(tk.Frame):
             for w in (t_card, top_t, lbl, tag_lbl, swatch):
                 w.bind("<Button-1>", lambda _, k=t_key: _choose(k))
 
+        # ── AI Assistant (Google Gemini) ──────────────────────────────────
+        self._section(inner, "🤖  AI Assistant (Google Gemini)")
+        ai_card = self._card(inner)
+        self._build_ai_section(ai_card)
+
         # ── Data management ───────────────────────────────────────────────
         self._section(inner, "💾  Data Management")
         data_card = self._card(inner)
@@ -350,3 +358,133 @@ class SettingsView(tk.Frame):
     def _logout(self):
         self._auth.logout()
         self._on_logout()
+
+    def _build_ai_section(self, parent):
+        tk.Label(
+            parent,
+            text="Connect Google Gemini to enable the AI Assistant to plan and manage notes, tasks, and calendar events from plain English instructions.",
+            font=cfg.FONT["xs"],
+            bg=cfg.C("card"),
+            fg=cfg.C("text2"),
+            wraplength=640,
+            justify="left",
+        ).pack(anchor="w", pady=(0, 10))
+
+        # Free API Key Link Box
+        key_help_box = tk.Frame(parent, bg=cfg.C("card2"), highlightthickness=1, highlightbackground=cfg.C("border"), padx=12, pady=10)
+        key_help_box.pack(fill="x", pady=(0, 12))
+
+        tk.Label(
+            key_help_box,
+            text="Need a key? Google AI Studio offers free Gemini API access with generous limits (15 RPM) and no credit card required.",
+            font=cfg.FONT["xs"],
+            bg=cfg.C("card2"),
+            fg=cfg.C("text2"),
+            wraplength=620,
+            justify="left",
+        ).pack(anchor="w")
+
+        make_button(
+            key_help_box,
+            text="🔗 Get Free Gemini API Key (Google AI Studio)",
+            command=lambda: webbrowser.open_new_tab("https://aistudio.google.com/app/apikey"),
+            variant="secondary",
+            font=cfg.FONT["xs_b"],
+            padx=10,
+            pady=3,
+        ).pack(anchor="w", pady=(6, 0))
+
+        # API Key Row
+        tk.Label(parent, text="Gemini API Key", font=cfg.FONT["xs_b"], bg=cfg.C("card"), fg=cfg.C("text2")).pack(anchor="w")
+
+        key_box = tk.Frame(parent, bg=cfg.C("card2"), highlightthickness=1, highlightbackground=cfg.C("border"))
+        key_box.pack(anchor="w", pady=(2, 8))
+
+        curr_key = get_gemini_api_key()
+        self._ai_key_var = tk.StringVar(value=curr_key)
+        self._ai_key_entry = tk.Entry(
+            key_box,
+            textvariable=self._ai_key_var,
+            font=cfg.FONT["sm"],
+            bg=cfg.C("card2"),
+            fg=cfg.C("text"),
+            insertbackground=cfg.C("text"),
+            relief="flat",
+            bd=0,
+            width=36,
+            show="•",
+        )
+        self._ai_key_entry.pack(side="left", padx=8, ipady=4)
+
+        self._ai_mask_var = tk.BooleanVar(value=False)
+        def _toggle_key_mask():
+            self._ai_key_entry.configure(show="" if self._ai_mask_var.get() else "•")
+            mask_btn.configure(text="Hide" if self._ai_mask_var.get() else "Show")
+
+        def _on_mask():
+            self._ai_mask_var.set(not self._ai_mask_var.get())
+            _toggle_key_mask()
+
+        mask_btn = tk.Button(
+            key_box,
+            text="Show",
+            font=cfg.FONT["xs_b"],
+            bg=cfg.C("card"),
+            fg=cfg.C("text2"),
+            relief="flat",
+            bd=0,
+            padx=8,
+            cursor="hand2",
+            command=_on_mask,
+        )
+        mask_btn.pack(side="right", padx=2, pady=2)
+
+        # Model Selector
+        tk.Label(parent, text="Model", font=cfg.FONT["xs_b"], bg=cfg.C("card"), fg=cfg.C("text2")).pack(anchor="w", pady=(4, 2))
+        curr_model = get_gemini_model()
+        self._ai_model_var = tk.StringVar(value=curr_model)
+        m_frame = tk.Frame(parent, bg=cfg.C("card"))
+        m_frame.pack(anchor="w", pady=(0, 8))
+
+        for m_name in ["gemini-flash-latest", "gemini-3.8-flash", "gemini-3.5-flash"]:
+            tk.Radiobutton(
+                m_frame,
+                text=m_name,
+                value=m_name,
+                variable=self._ai_model_var,
+                font=cfg.FONT["xs_b"],
+                bg=cfg.C("card"),
+                fg=cfg.C("text"),
+                selectcolor=cfg.C("card2"),
+                activebackground=cfg.C("card"),
+            ).pack(side="left", padx=(0, 14))
+
+        # Feedback label
+        self._ai_feedback = tk.Label(parent, text="", font=cfg.FONT["xs_b"], bg=cfg.C("card"))
+        self._ai_feedback.pack(anchor="w", pady=(0, 8))
+
+        # Action Buttons
+        btn_box = tk.Frame(parent, bg=cfg.C("card"))
+        btn_box.pack(anchor="w")
+
+        def _test_ai():
+            k = self._ai_key_var.get().strip()
+            m = self._ai_model_var.get()
+            self._ai_feedback.configure(text="Testing connection to Gemini…", fg=cfg.C("accent"))
+            self.update_idletasks()
+            ok, msg = test_gemini_connection(k, m)
+            if ok:
+                self._ai_feedback.configure(text=f"✓ {msg}", fg=cfg.C("success"))
+            else:
+                self._ai_feedback.configure(text=f"✕ {msg}", fg=cfg.C("danger"))
+
+        def _save_ai():
+            k = self._ai_key_var.get().strip()
+            m = self._ai_model_var.get()
+            save_data(KEYS.GEMINI_API_KEY, k)
+            save_data(KEYS.GEMINI_MODEL, m)
+            self._ai_feedback.configure(text="✓ Gemini AI configuration saved!", fg=cfg.C("success"))
+            self.after(2500, lambda: self._ai_feedback.configure(text=""))
+
+        make_button(btn_box, "Save AI Config", command=_save_ai, variant="primary", font=cfg.FONT["xs_b"]).pack(side="left", padx=(0, 8))
+        make_button(btn_box, "Test Connection", command=_test_ai, variant="secondary", font=cfg.FONT["xs_b"]).pack(side="left")

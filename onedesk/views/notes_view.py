@@ -11,6 +11,7 @@ from ..components.ui_helpers import (
     make_button, make_separator, ScrollableFrame, make_pill,
 )
 from ..components.modals import NoteDialog, confirm
+from ..importers import parse_notes_file
 
 
 class NotesView(tk.Frame):
@@ -54,11 +55,20 @@ class NotesView(tk.Frame):
                  bg=cfg.C("bg"), fg=cfg.C("text")).pack(side="left")
         tk.Label(title_row, text=f"  {len(self._store.notes)} captured",
                  font=cfg.FONT["sm"], bg=cfg.C("bg"), fg=cfg.C("text2")).pack(side="left", pady=(6, 0))
+        btn_box = tk.Frame(title_row, bg=cfg.C("bg"))
+        btn_box.pack(side="right")
+
         make_button(
-            title_row, text="+ New Note",
+            btn_box, text="📥 Import Notes",
+            command=self._import_notes,
+            variant="secondary",
+        ).pack(side="left", padx=(0, 8))
+
+        make_button(
+            btn_box, text="+ New Note",
             command=self._open_new,
             variant="primary",
-        ).pack(side="right")
+        ).pack(side="left")
 
         # Search bar
         search_frame = tk.Frame(self._top, bg=cfg.C("bg"))
@@ -221,3 +231,39 @@ class NotesView(tk.Frame):
         with open(path, "w", encoding="utf-8") as f:
             f.write(content)
         messagebox.showinfo("Exported", f"Note exported to:\n{path}")
+
+    def _import_notes(self):
+        filetypes = [
+            ("Supported Notes Files", "*.json;*.csv;*.txt;*.md"),
+            ("JSON files", "*.json"),
+            ("CSV files", "*.csv"),
+            ("Text & Markdown", "*.txt;*.md"),
+            ("All files", "*.*"),
+        ]
+        paths = filedialog.askopenfilenames(
+            title="Import Notes",
+            filetypes=filetypes,
+        )
+        if not paths:
+            return
+
+        total_imported = 0
+        errors = []
+        for path in paths:
+            try:
+                notes = parse_notes_file(path)
+                count = self._store.import_notes(notes)
+                total_imported += count
+            except Exception as e:
+                errors.append(f"{os.path.basename(path)}: {e}")
+
+        if total_imported > 0:
+            msg = f"Successfully imported {total_imported} note{'s' if total_imported != 1 else ''} into OneDesk!"
+            if errors:
+                msg += "\n\nWarnings/Errors:\n" + "\n".join(errors)
+            messagebox.showinfo("Notes Imported", msg)
+        else:
+            err_msg = "No valid notes found to import."
+            if errors:
+                err_msg += "\n\nDetails:\n" + "\n".join(errors)
+            messagebox.showwarning("Import Notes", err_msg)

@@ -7,7 +7,9 @@ Modern, fluid at-a-glance productivity dashboard:
 - 3-column workspace: Pending Tasks (with tick & delete buttons), Today's Schedule, Recent Notes
 """
 
+import os
 import tkinter as tk
+from tkinter import filedialog, messagebox
 import time
 from datetime import date
 from .. import config as cfg
@@ -16,6 +18,7 @@ from ..components.ui_helpers import (
     create_circular_avatar, RoundIconButton, make_pill_badge,
 )
 from ..components.modals import TaskDialog, EventDialog, NoteDialog
+from ..importers import parse_tasks_file, parse_notes_file, parse_events_file
 
 
 class DashboardView(tk.Frame):
@@ -339,9 +342,26 @@ class DashboardView(tk.Frame):
             font_key="xs_b",
         ).pack(side="left", padx=8)
 
+        r_box0 = tk.Frame(t_header, bg=cfg.C("card"))
+        r_box0.pack(side="right")
+
+        RoundIconButton(
+            r_box0,
+            icon="📥",
+            command=self._import_tasks,
+            size=22,
+            bg_color=cfg.C("card2"),
+            fg_color=cfg.C("text3"),
+            hover_bg=cfg.C("accent"),
+            hover_fg="#ffffff",
+            border_color=cfg.C("border"),
+            tooltip="Import Tasks",
+            parent_bg=cfg.C("card"),
+        ).pack(side="left", padx=(0, 6))
+
         if self._on_navigate:
             tk.Button(
-                t_header,
+                r_box0,
                 text="View All →",
                 font=cfg.FONT["xs_b"],
                 bg=cfg.C("card"),
@@ -352,7 +372,7 @@ class DashboardView(tk.Frame):
                 bd=0,
                 cursor="hand2",
                 command=lambda: self._on_navigate("Tasks"),
-            ).pack(side="right")
+            ).pack(side="left")
 
         make_separator(tc, bg=cfg.C("border")).pack(fill="x", padx=16)
 
@@ -522,9 +542,26 @@ class DashboardView(tk.Frame):
             font_key="xs_b",
         ).pack(side="left", padx=8)
 
+        r_box1 = tk.Frame(e_header, bg=cfg.C("card"))
+        r_box1.pack(side="right")
+
+        RoundIconButton(
+            r_box1,
+            icon="📥",
+            command=self._import_events,
+            size=22,
+            bg_color=cfg.C("card2"),
+            fg_color=cfg.C("text3"),
+            hover_bg=cfg.C("accent2"),
+            hover_fg="#ffffff",
+            border_color=cfg.C("border"),
+            tooltip="Import Events",
+            parent_bg=cfg.C("card"),
+        ).pack(side="left", padx=(0, 6))
+
         if self._on_navigate:
             tk.Button(
-                e_header,
+                r_box1,
                 text="Calendar →",
                 font=cfg.FONT["xs_b"],
                 bg=cfg.C("card"),
@@ -535,7 +572,7 @@ class DashboardView(tk.Frame):
                 bd=0,
                 cursor="hand2",
                 command=lambda: self._on_navigate("Calendar"),
-            ).pack(side="right")
+            ).pack(side="left")
 
         make_separator(ec, bg=cfg.C("border")).pack(fill="x", padx=16)
 
@@ -657,9 +694,26 @@ class DashboardView(tk.Frame):
             font_key="xs_b",
         ).pack(side="left", padx=8)
 
+        r_box2 = tk.Frame(n_header, bg=cfg.C("card"))
+        r_box2.pack(side="right")
+
+        RoundIconButton(
+            r_box2,
+            icon="📥",
+            command=self._import_notes,
+            size=22,
+            bg_color=cfg.C("card2"),
+            fg_color=cfg.C("text3"),
+            hover_bg=cfg.C("accent3"),
+            hover_fg="#ffffff",
+            border_color=cfg.C("border"),
+            tooltip="Import Notes",
+            parent_bg=cfg.C("card"),
+        ).pack(side="left", padx=(0, 6))
+
         if self._on_navigate:
             tk.Button(
-                n_header,
+                r_box2,
                 text="Notes →",
                 font=cfg.FONT["xs_b"],
                 bg=cfg.C("card"),
@@ -670,7 +724,7 @@ class DashboardView(tk.Frame):
                 bd=0,
                 cursor="hand2",
                 command=lambda: self._on_navigate("Notes"),
-            ).pack(side="right")
+            ).pack(side="left")
 
         make_separator(nc, bg=cfg.C("border")).pack(fill="x", padx=16)
 
@@ -798,3 +852,93 @@ class DashboardView(tk.Frame):
 
     def _on_add_task(self, fields):
         self._store.add_task(**fields)
+
+    def _import_tasks(self):
+        filetypes = [
+            ("Supported Task Files", "*.json;*.csv;*.txt;*.md"),
+            ("JSON files", "*.json"),
+            ("CSV files", "*.csv"),
+            ("Markdown & Text Checklists", "*.txt;*.md"),
+            ("All files", "*.*"),
+        ]
+        paths = filedialog.askopenfilenames(title="Import Tasks", filetypes=filetypes)
+        if not paths:
+            return
+        total_imported = 0
+        errors = []
+        for path in paths:
+            try:
+                tasks = parse_tasks_file(path)
+                total_imported += self._store.import_tasks(tasks)
+            except Exception as e:
+                errors.append(f"{os.path.basename(path)}: {e}")
+        if total_imported > 0:
+            msg = f"Successfully imported {total_imported} task{'s' if total_imported != 1 else ''} into OneDesk!"
+            if errors:
+                msg += "\n\nWarnings/Errors:\n" + "\n".join(errors)
+            messagebox.showinfo("Tasks Imported", msg)
+        else:
+            err_msg = "No valid tasks found to import."
+            if errors:
+                err_msg += "\n\nDetails:\n" + "\n".join(errors)
+            messagebox.showwarning("Import Tasks", err_msg)
+
+    def _import_notes(self):
+        filetypes = [
+            ("Supported Notes Files", "*.json;*.csv;*.txt;*.md"),
+            ("JSON files", "*.json"),
+            ("CSV files", "*.csv"),
+            ("Text & Markdown", "*.txt;*.md"),
+            ("All files", "*.*"),
+        ]
+        paths = filedialog.askopenfilenames(title="Import Notes", filetypes=filetypes)
+        if not paths:
+            return
+        total_imported = 0
+        errors = []
+        for path in paths:
+            try:
+                notes = parse_notes_file(path)
+                total_imported += self._store.import_notes(notes)
+            except Exception as e:
+                errors.append(f"{os.path.basename(path)}: {e}")
+        if total_imported > 0:
+            msg = f"Successfully imported {total_imported} note{'s' if total_imported != 1 else ''} into OneDesk!"
+            if errors:
+                msg += "\n\nWarnings/Errors:\n" + "\n".join(errors)
+            messagebox.showinfo("Notes Imported", msg)
+        else:
+            err_msg = "No valid notes found to import."
+            if errors:
+                err_msg += "\n\nDetails:\n" + "\n".join(errors)
+            messagebox.showwarning("Import Notes", err_msg)
+
+    def _import_events(self):
+        filetypes = [
+            ("Supported Calendar Files", "*.ics;*.json;*.csv"),
+            ("iCalendar files", "*.ics"),
+            ("JSON files", "*.json"),
+            ("CSV files", "*.csv"),
+            ("All files", "*.*"),
+        ]
+        paths = filedialog.askopenfilenames(title="Import Calendar Activities & Events", filetypes=filetypes)
+        if not paths:
+            return
+        total_imported = 0
+        errors = []
+        for path in paths:
+            try:
+                events = parse_events_file(path)
+                total_imported += self._store.import_events(events)
+            except Exception as e:
+                errors.append(f"{os.path.basename(path)}: {e}")
+        if total_imported > 0:
+            msg = f"Successfully imported {total_imported} event/activit{'ies' if total_imported != 1 else 'y'} into OneDesk!"
+            if errors:
+                msg += "\n\nWarnings/Errors:\n" + "\n".join(errors)
+            messagebox.showinfo("Events Imported", msg)
+        else:
+            err_msg = "No valid calendar activities found to import."
+            if errors:
+                err_msg += "\n\nDetails:\n" + "\n".join(errors)
+            messagebox.showwarning("Import Events", err_msg)

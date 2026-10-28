@@ -74,13 +74,16 @@ def import_backup(backup: dict) -> None:
 # ── Storage key constants ────────────────────────────────────────────────────
 
 class KEYS:
-    USER   = "user"
-    USERS  = "users"
-    NOTES  = "notes"
-    TASKS  = "tasks"
-    EVENTS = "events"
-    THEME  = "theme"
-    SEEDED = "seeded"
+    USER           = "user"
+    USERS          = "users"
+    NOTES          = "notes"
+    TASKS          = "tasks"
+    EVENTS         = "events"
+    THEME          = "theme"
+    SEEDED         = "seeded"
+    GEMINI_API_KEY = "gemini_api_key"
+    GEMINI_MODEL   = "gemini_model"
+    AI_HISTORY     = "ai_history"
 
 
 # ── Sample data ──────────────────────────────────────────────────────────────
