@@ -128,35 +128,46 @@ class AIView(tk.Frame):
             pady=4,
         ).pack(side="left")
 
+    PLACEHOLDER_TEXT = "Ask OneDesk AI anything or give multi-action commands... (Shift+Enter for newline)"
+
     def _render_input_bar(self):
         for w in self._input_frame.winfo_children():
             w.destroy()
 
-        inner = tk.Frame(self._input_frame, bg=cfg.C("card"), padx=12, pady=10)
+        self._has_placeholder = True
+
+        self._input_frame.configure(
+            bg=cfg.C("card"),
+            highlightthickness=1,
+            highlightbackground=cfg.C("border"),
+        )
+
+        inner = tk.Frame(self._input_frame, bg=cfg.C("card"), padx=14, pady=10)
         inner.pack(fill="x")
 
-        # Prompt suggestions bar
-        chips_frame = tk.Frame(inner, bg=cfg.C("card"))
-        chips_frame.pack(fill="x", pady=(0, 8))
-
-        suggestions = [
-            "Add meeting with Alex at 9 PM and task to prep dinner",
-            "Schedule project sprint review tomorrow at 11:00 AM",
-            "Note: Product brainstorming topics and create high priority task",
-        ]
+        # ── 1. Top Quick Action / Suggestion Chips ────────────────────────────
+        top_bar = tk.Frame(inner, bg=cfg.C("card"))
+        top_bar.pack(fill="x", pady=(0, 8))
 
         tk.Label(
-            chips_frame,
-            text="✦ Try:",
+            top_bar,
+            text="✨ Quick Prompts:",
             font=cfg.FONT["xs_b"],
             bg=cfg.C("card"),
             fg=cfg.C("accent"),
         ).pack(side="left", padx=(0, 6))
 
-        for s in suggestions:
-            btn = tk.Button(
-                chips_frame,
-                text=s if len(s) < 45 else s[:42] + "…",
+        suggestions = [
+            ("📝 Multi-Action Combo", "Add a note saying meeting at 9 PM, schedule the meeting in my calendar, and add a task to prepare dinner by 10 PM."),
+            ("📅 Schedule Meeting", "Schedule project review with design team tomorrow at 2:00 PM."),
+            ("✔ Prioritized Task", "Add urgent task: Review client presentation by 5 PM with High priority."),
+            ("💡 Brainstorm Note", "Note: Product ideas for mobile dashboard and UX enhancements."),
+        ]
+
+        for label, full_prompt in suggestions:
+            chip = tk.Button(
+                top_bar,
+                text=label,
                 font=cfg.FONT["xs"],
                 bg=cfg.C("card2"),
                 fg=cfg.C("text2"),
@@ -167,70 +178,161 @@ class AIView(tk.Frame):
                 padx=8,
                 pady=2,
                 cursor="hand2",
-                command=lambda t=s: self._use_suggestion(t),
+                command=lambda p=full_prompt: self._use_suggestion(p),
             )
-            btn.pack(side="left", padx=3)
+            chip.pack(side="left", padx=3)
 
-        # Main Entry row
-        row = tk.Frame(inner, bg=cfg.C("card"))
-        row.pack(fill="x")
+            def _hover_enter(e, c=chip):
+                c.configure(bg=cfg.C("accent"), fg="#ffffff")
+            def _hover_leave(e, c=chip):
+                c.configure(bg=cfg.C("card2"), fg=cfg.C("text2"))
+            chip.bind("<Enter>", _hover_enter)
+            chip.bind("<Leave>", _hover_leave)
 
+        # ── 2. Modern Multi-Line Input Box ────────────────────────────────────
         entry_outer = tk.Frame(
-            row,
+            inner,
             bg=cfg.C("card2"),
             highlightthickness=1,
             highlightbackground=cfg.C("border"),
-            padx=4,
-            pady=2,
+            padx=10,
+            pady=8,
         )
-        entry_outer.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        entry_outer.pack(fill="x", pady=(0, 8))
+        self._entry_outer = entry_outer
 
-        self._entry_var = tk.StringVar()
-        self._entry = tk.Entry(
+        # Magic Sparkle Icon Prefix
+        prefix_box = tk.Frame(entry_outer, bg=cfg.C("card2"))
+        prefix_box.pack(side="left", anchor="nw", padx=(0, 8), pady=2)
+        tk.Label(
+            prefix_box,
+            text="✨",
+            font=cfg.FONT["sm_b"],
+            bg=cfg.C("card2"),
+            fg=cfg.C("accent"),
+        ).pack()
+
+        # Multi-line Text Widget
+        self._text_input = tk.Text(
             entry_outer,
-            textvariable=self._entry_var,
+            height=2,
             font=cfg.FONT["sm"],
             bg=cfg.C("card2"),
-            fg=cfg.C("text"),
+            fg=cfg.C("text3"),
             insertbackground=cfg.C("text"),
             relief="flat",
             bd=0,
+            wrap="word",
+            padx=2,
+            pady=2,
+            undo=True,
         )
-        self._entry.pack(side="left", fill="x", expand=True, padx=8, ipady=6)
-        self._entry.bind("<Return>", lambda e: self._send_message())
+        self._text_input.pack(side="left", fill="x", expand=True)
+        self._text_input.insert("1.0", self.PLACEHOLDER_TEXT)
 
-        # Up-arrow key to recall and edit previous user prompt
-        def _on_up_arrow(_):
-            if not self._entry_var.get().strip():
-                for item in reversed(self._history):
-                    if item.get("role") == "user":
-                        self._edit_user_prompt(item.get("text", ""))
-                        break
-        self._entry.bind("<Up>", _on_up_arrow)
+        # ── 3. Bottom Controls & Status Row ───────────────────────────────────
+        controls_row = tk.Frame(inner, bg=cfg.C("card"))
+        controls_row.pack(fill="x")
 
-        # Focus highlight bindings
-        def _in(_):
-            entry_outer.configure(highlightbackground=cfg.C("accent"))
-        def _out(_):
-            entry_outer.configure(highlightbackground=cfg.C("border"))
-        self._entry.bind("<FocusIn>", _in)
-        self._entry.bind("<FocusOut>", _out)
+        # Left: Keyboard Shortcuts Legend
+        hints_frame = tk.Frame(controls_row, bg=cfg.C("card"))
+        hints_frame.pack(side="left", fill="y")
 
-        # Send Round Button
-        self._send_btn = RoundIconButton(
-            row,
-            icon="➤",
+        tk.Label(
+            hints_frame,
+            text="↵ Enter to send  ·  ⇧+↵ for new line  ·  ↑ to recall previous  ·  Esc to clear",
+            font=cfg.FONT["xs"],
+            bg=cfg.C("card"),
+            fg=cfg.C("text3"),
+        ).pack(side="left")
+
+        # Right: Live Stats & Action Buttons
+        right_actions = tk.Frame(controls_row, bg=cfg.C("card"))
+        right_actions.pack(side="right")
+
+        # Character Counter
+        self._char_counter = tk.Label(
+            right_actions,
+            text="0 chars",
+            font=cfg.FONT["xs"],
+            bg=cfg.C("card"),
+            fg=cfg.C("text3"),
+        )
+        self._char_counter.pack(side="left", padx=(0, 10))
+
+        # Clear Button
+        self._clear_btn = tk.Button(
+            right_actions,
+            text="✕ Clear",
+            font=cfg.FONT["xs_b"],
+            bg=cfg.C("card2"),
+            fg=cfg.C("text2"),
+            activebackground=cfg.C("card"),
+            activeforeground=cfg.C("danger"),
+            relief="flat",
+            bd=0,
+            padx=8,
+            pady=4,
+            cursor="hand2",
+            command=self._clear_input,
+        )
+        self._clear_btn.pack(side="left", padx=(0, 8))
+
+        # Send Button
+        self._send_btn = tk.Button(
+            right_actions,
+            text="➤ Send",
+            font=cfg.FONT["sm_b"],
+            bg=cfg.C("accent"),
+            fg="#ffffff",
+            activebackground=cfg.C("accent2"),
+            activeforeground="#ffffff",
+            relief="flat",
+            bd=0,
+            padx=14,
+            pady=4,
+            cursor="hand2",
             command=self._send_message,
-            size=36,
-            bg_color=cfg.C("accent"),
-            fg_color="#ffffff",
-            hover_bg=cfg.C("accent2"),
-            hover_fg="#ffffff",
-            border_color=cfg.C("accent"),
-            tooltip="Send Message to AI (Enter)",
-            parent_bg=cfg.C("card"),
         )
         self._send_btn.pack(side="left")
+
+        # Event Handlers
+        def _on_focus_in(_):
+            entry_outer.configure(highlightbackground=cfg.C("accent"))
+            self._input_frame.configure(highlightbackground=cfg.C("accent"))
+            if self._has_placeholder:
+                self._has_placeholder = False
+                self._text_input.delete("1.0", "end")
+                self._text_input.configure(fg=cfg.C("text"))
+
+        def _on_focus_out(_):
+            entry_outer.configure(highlightbackground=cfg.C("border"))
+            self._input_frame.configure(highlightbackground=cfg.C("border"))
+            if not self._get_input_text():
+                self._show_placeholder()
+
+        def _on_key_press(event):
+            # Plain Enter sends message; Shift+Enter creates a new line
+            if event.keysym == "Return" and not (event.state & 0x0001):
+                self._send_message()
+                return "break"
+            elif event.keysym == "Up":
+                cursor_idx = self._text_input.index("insert")
+                if self._has_placeholder or cursor_idx == "1.0":
+                    self._recall_previous_prompt()
+                    return "break"
+            elif event.keysym == "Escape":
+                self._clear_input()
+                return "break"
+            return None
+
+        def _on_key_release(_):
+            self._update_input_state()
+
+        self._text_input.bind("<FocusIn>", _on_focus_in)
+        self._text_input.bind("<FocusOut>", _on_focus_out)
+        self._text_input.bind("<KeyPress>", _on_key_press)
+        self._text_input.bind("<KeyRelease>", _on_key_release)
 
     def _render_welcome(self):
         for w in self._chat_container.winfo_children():
@@ -324,16 +426,112 @@ class AIView(tk.Frame):
                 w.bind("<Button-1>", lambda _, t=prompt_text: _click(t))
 
     # ── Interaction & Chat Engine ─────────────────────────────────────────────
+    def _get_input_text(self) -> str:
+        if getattr(self, "_has_placeholder", True) or not hasattr(self, "_text_input"):
+            return ""
+        return self._text_input.get("1.0", "end-1c").strip()
+
+    def _set_input_text(self, text: str):
+        if not hasattr(self, "_text_input"):
+            return
+        self._has_placeholder = False
+        self._text_input.delete("1.0", "end")
+        if text:
+            self._text_input.configure(fg=cfg.C("text"))
+            self._text_input.insert("1.0", text)
+        else:
+            self._show_placeholder()
+        self._update_input_state()
+
+    def _show_placeholder(self):
+        if not hasattr(self, "_text_input"):
+            return
+        self._has_placeholder = True
+        self._text_input.delete("1.0", "end")
+        self._text_input.insert("1.0", self.PLACEHOLDER_TEXT)
+        self._text_input.configure(fg=cfg.C("text3"))
+        self._update_input_state()
+
+    def _clear_input(self):
+        self._set_input_text("")
+        if hasattr(self, "_text_input"):
+            self._text_input.focus_set()
+
+    def _update_input_state(self):
+        text = self._get_input_text()
+        char_len = len(text)
+        if hasattr(self, "_char_counter"):
+            self._char_counter.configure(text=f"{char_len} chars")
+
+        # Auto-adjust height dynamically between 2 and 4 lines
+        if hasattr(self, "_text_input"):
+            lines = text.count("\n") + 1
+            new_height = max(2, min(4, lines))
+            curr_height = int(self._text_input.cget("height"))
+            if new_height != curr_height:
+                self._text_input.configure(height=new_height)
+
+        # Clear button appearance
+        if hasattr(self, "_clear_btn"):
+            if text:
+                self._clear_btn.configure(fg=cfg.C("text"), state="normal")
+            else:
+                self._clear_btn.configure(fg=cfg.C("text3"), state="normal")
+
+        # Send button visual cue
+        if hasattr(self, "_send_btn") and not self._is_thinking:
+            if text:
+                self._send_btn.configure(
+                    bg=cfg.C("accent"),
+                    fg="#ffffff",
+                    activebackground=cfg.C("accent2"),
+                    state="normal",
+                )
+            else:
+                self._send_btn.configure(
+                    bg=cfg.C("card2"),
+                    fg=cfg.C("text2"),
+                    activebackground=cfg.C("card"),
+                    state="normal",
+                )
+
+    def _update_send_button_state(self):
+        if not hasattr(self, "_send_btn") or not self._send_btn.winfo_exists():
+            return
+        if self._is_thinking:
+            self._send_btn.configure(
+                text="⏳ Planning...",
+                bg=cfg.C("card2"),
+                fg=cfg.C("accent"),
+                state="disabled",
+            )
+        else:
+            self._send_btn.configure(
+                text="➤ Send",
+                bg=cfg.C("accent"),
+                fg="#ffffff",
+                state="normal",
+            )
+        self._update_input_state()
+
+    def _recall_previous_prompt(self):
+        for item in reversed(self._history):
+            if item.get("role") == "user":
+                self._edit_user_prompt(item.get("text", ""))
+                break
+
     def _use_suggestion(self, text: str):
-        self._entry_var.set(text)
-        self._entry.focus_set()
-        self._entry.icursor("end")
+        self._set_input_text(text)
+        if hasattr(self, "_text_input"):
+            self._text_input.focus_set()
+            self._text_input.mark_set("insert", "end")
 
     def _edit_user_prompt(self, text: str):
-        self._entry_var.set(text)
-        self._entry.focus_set()
-        self._entry.icursor("end")
-        self._entry.selection_range(0, "end")
+        self._set_input_text(text)
+        if hasattr(self, "_text_input"):
+            self._text_input.focus_set()
+            self._text_input.tag_add("sel", "1.0", "end")
+            self._text_input.mark_set("insert", "end")
         self._scroll_to_bottom()
 
     def _clear_chat(self):
@@ -344,11 +542,15 @@ class AIView(tk.Frame):
         if self._is_thinking:
             return
 
-        user_text = self._entry_var.get().strip()
+        user_text = self._get_input_text()
         if not user_text:
             return
 
-        self._entry_var.set("")
+        self._set_input_text("")
+
+        # Update Send button state to thinking
+        self._is_thinking = True
+        self._update_send_button_state()
 
         # Remove welcome card if first message
         if not self._history:
@@ -361,7 +563,6 @@ class AIView(tk.Frame):
         self._render_user_bubble(user_text, timestamp)
 
         # Show Loading Indicator
-        self._is_thinking = True
         self._render_thinking_card()
 
         # Prepare context
@@ -474,6 +675,7 @@ class AIView(tk.Frame):
 
     def _on_ai_response(self, plan: dict):
         self._is_thinking = False
+        self._update_send_button_state()
         if hasattr(self, "_thinking_wrap") and self._thinking_wrap.winfo_exists():
             self._thinking_wrap.destroy()
 
