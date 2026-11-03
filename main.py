@@ -5,11 +5,13 @@ theme switching, and ties all components together.
 """
 
 import tkinter as tk
+from tkinter import messagebox
+import traceback
 from onedesk import config as cfg
 from onedesk.platform_helpers import enable_high_dpi, apply_window_theme, center_window
 from onedesk.storage import KEYS, load_data, save_data
 from onedesk.auth import AuthManager
-from onedesk.state import DataStore
+from onedesk.state import DataStore, PersistenceError
 from onedesk.components.sidebar import Sidebar
 from onedesk.components.navbar import Navbar
 from onedesk.views.auth_view import AuthView
@@ -37,6 +39,7 @@ class OneDeskApp:
         enable_high_dpi()
 
         self._root = tk.Tk()
+        self._root.report_callback_exception = self._report_callback_exception
         self._root.title("OneDesk — Personal Productivity Dashboard")
         self._root.minsize(cfg.MIN_W, cfg.MIN_H)
 
@@ -72,6 +75,16 @@ class OneDeskApp:
         # ── Core state ────────────────────────────────────────────────────
         self._auth  = AuthManager()
         self._store = DataStore()
+        if self._auth.is_logged_in:
+            try:
+                self._store.set_user(
+                    self._auth.user["id"],
+                    migrate_legacy=self._auth.can_migrate_legacy_data,
+                )
+            except Exception as exc:
+                self._auth.error = str(exc) if isinstance(exc, PersistenceError) else "Could not load this account's data from MySQL."
+                self._store.clear_user()
+                self._auth.logout(preserve_session=True)
 
         # ── Build UI ──────────────────────────────────────────────────────
         self._main_frame  = None  # holds navbar + sidebar + content
@@ -105,8 +118,26 @@ class OneDeskApp:
             bg=cfg.C("bg"),
         )
         self._auth_frame.pack(fill="both", expand=True)
+        if self._auth.error:
+            self._auth_frame._show_error(self._auth.error)
 
     def _on_login(self):
+        if not self._auth.is_logged_in:
+            if self._auth_frame and self._auth.error:
+                self._auth_frame._show_error(self._auth.error)
+            return
+        try:
+            self._store.set_user(
+                self._auth.user["id"],
+                migrate_legacy=self._auth.can_migrate_legacy_data,
+            )
+        except Exception as exc:
+            self._auth.error = str(exc) if isinstance(exc, PersistenceError) else "Could not load this account's data from MySQL."
+            self._store.clear_user()
+            self._auth.logout(preserve_session=True)
+            if self._auth_frame:
+                self._auth_frame._show_error(self._auth.error)
+            return
         if self._auth_frame:
             self._auth_frame.destroy()
             self._auth_frame = None
@@ -208,11 +239,18 @@ class OneDeskApp:
 
     # ── Logout ───────────────────────────────────────────────────────────────
     def _on_logout(self):
+        self._store.clear_user()
         if self._main_frame:
             self._main_frame.destroy()
             self._main_frame = None
         self._content = None
         self._show_auth()
+
+    def _report_callback_exception(self, exc_type, exc_value, exc_traceback):
+        if isinstance(exc_value, PersistenceError):
+            messagebox.showerror("Database Error", str(exc_value), parent=self._root)
+            return
+        traceback.print_exception(exc_type, exc_value, exc_traceback)
 
     # ── Profile update ───────────────────────────────────────────────────────
     def _on_profile_updated(self):

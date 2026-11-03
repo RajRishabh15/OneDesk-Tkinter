@@ -288,9 +288,11 @@ class SettingsView(tk.Frame):
             im = im.resize((256, 256), Image.Resampling.LANCZOS)
             im.save(dest_path, "PNG")
 
-            self._auth.update_profile(avatar_path=dest_path)
+            if not self._auth.update_profile(avatar_path=dest_path):
+                messagebox.showerror("Profile Update Failed", self._auth.error or "Could not update the profile.")
+                return
             self._refresh_avatar_preview()
-            self._save_feedback.configure(text="✓ Profile picture updated!")
+            self._save_feedback.configure(text="✓ Profile picture updated!", fg=cfg.C("success"))
             self.after(2000, lambda: self._save_feedback.configure(text=""))
             if self._on_profile_updated:
                 self._on_profile_updated()
@@ -298,9 +300,11 @@ class SettingsView(tk.Frame):
             messagebox.showerror("Error", f"Failed to set profile picture:\n{e}")
 
     def _remove_picture(self):
-        self._auth.update_profile(avatar_path="")
+        if not self._auth.update_profile(avatar_path=""):
+            self._save_feedback.configure(text=self._auth.error or "Could not update the profile.", fg=cfg.C("danger"))
+            return
         self._refresh_avatar_preview()
-        self._save_feedback.configure(text="✓ Profile picture removed.")
+        self._save_feedback.configure(text="✓ Profile picture removed.", fg=cfg.C("success"))
         self.after(2000, lambda: self._save_feedback.configure(text=""))
         if self._on_profile_updated:
             self._on_profile_updated()
@@ -308,9 +312,11 @@ class SettingsView(tk.Frame):
     def _save_profile(self):
         new_name = self._name_var.get().strip()
         if new_name:
-            self._auth.update_profile(name=new_name)
+            if not self._auth.update_profile(name=new_name):
+                self._save_feedback.configure(text=self._auth.error or "Could not update the profile.", fg=cfg.C("danger"))
+                return
             self._refresh_avatar_preview()
-            self._save_feedback.configure(text="✓ Profile saved!")
+            self._save_feedback.configure(text="✓ Profile saved!", fg=cfg.C("success"))
             self.after(1800, lambda: self._save_feedback.configure(text=""))
             if self._on_profile_updated:
                 self._on_profile_updated()

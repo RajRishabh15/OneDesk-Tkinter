@@ -79,6 +79,8 @@ class KEYS:
     NOTES          = "notes"
     TASKS          = "tasks"
     EVENTS         = "events"
+    MIGRATED_USERS = "mysql_migrated_users"
+    LEGACY_DATA_OWNER = "legacy_productivity_owner_email"
     THEME          = "theme"
     SEEDED         = "seeded"
     GEMINI_API_KEY = "gemini_api_key"
