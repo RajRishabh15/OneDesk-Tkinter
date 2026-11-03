@@ -10,6 +10,7 @@ State-of-the-art desktop calendar experience:
 """
 
 import os
+import calendar
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from datetime import date, datetime, timedelta
@@ -30,15 +31,11 @@ MONTHS         = [
 
 
 def _month_days(year: int, month: int):
-    """Return list of 42 date objects for the 6-row monthly calendar grid."""
+    """Return complete Sunday-first weeks needed to display the month."""
     first = date(year, month, 1)
     start = first - timedelta(days=(first.weekday() + 1) % 7)
-    days = []
-    d = start
-    while len(days) < 42:
-        days.append(d)
-        d += timedelta(days=1)
-    return days
+    week_count = ((first.weekday() + 1) % 7 + calendar.monthrange(year, month)[1] + 6) // 7
+    return [start + timedelta(days=offset) for offset in range(week_count * 7)]
 
 
 class CalendarView(tk.Frame):
@@ -49,6 +46,9 @@ class CalendarView(tk.Frame):
         self._cursor = date.today()
         self._selected_date = date.today()
         self._view = "month"          # "month" | "week" | "day" | "agenda"
+        self._month_compact = None
+        self._month_row_height = None
+        self._resize_job = None
         self._filter_type = "all"     # "all" | "events" | "tasks"
         self._search_query = ""
         self._show_sidebar = False    # default clean full calendar, toggleable with "📋 Agenda Panel"
@@ -58,6 +58,11 @@ class CalendarView(tk.Frame):
 
     def destroy(self):
         self._store.unsubscribe(self._refresh)
+        if self._resize_job is not None:
+            try:
+                self.after_cancel(self._resize_job)
+            except tk.TclError:
+                pass
         super().destroy()
 
     # ── UI Construction ───────────────────────────────────────────────────────
@@ -74,6 +79,7 @@ class CalendarView(tk.Frame):
         # Main Calendar Canvas
         self._main_content = tk.Frame(self._split_container, bg=cfg.C("bg"))
         self._main_content.pack(side="left", fill="both", expand=True)
+        self._main_content.bind("<Configure>", self._on_calendar_resize, add="+")
 
         # Right Slide-Out Sidebar (Day Agenda Drawer)
         self._sidebar = tk.Frame(
@@ -464,10 +470,39 @@ class CalendarView(tk.Frame):
         elif self._view == "agenda":
             self._render_agenda()
 
+    def _on_calendar_resize(self, _event=None):
+        if self._view == "month":
+            if self._resize_job is not None:
+                self.after_cancel(self._resize_job)
+            self._resize_job = self.after(100, self._sync_month_density)
+
+    def _sync_month_density(self):
+        if not self.winfo_exists() or self._view != "month":
+            return
+        week_count = len(_month_days(self._cursor.year, self._cursor.month)) // 7
+        row_height = max(25, (self._main_content.winfo_height() - 36) // week_count)
+        compact = row_height < 68 or self._main_content.winfo_width() < 700
+        self._resize_job = None
+        must_resize_cells = (
+            self._month_row_height is None
+            or row_height < self._month_row_height
+            or row_height - self._month_row_height >= 20
+        )
+        if compact != self._month_compact or must_resize_cells:
+            self._month_compact = compact
+            self._render_view()
+
     # ── 1. Geometric Balanced Month View (Uniform Pixel-Perfect Rows) ────────
     def _render_month(self):
         container = tk.Frame(self._main_content, bg=cfg.C("bg"))
         container.pack(fill="both", expand=True)
+        days = _month_days(self._cursor.year, self._cursor.month)
+        week_count = len(days) // 7
+        available_height = self._main_content.winfo_height()
+        row_height = max(25, (available_height - 36) // week_count)
+        compact = row_height < 68 or self._main_content.winfo_width() < 700
+        self._month_compact = compact
+        self._month_row_height = row_height
 
         # ── Weekday Strip (Uniformly Aligned) ─────────────────────────────────
         weekday_bar = tk.Frame(container, bg=cfg.C("card"), height=30)
@@ -482,7 +517,7 @@ class CalendarView(tk.Frame):
                 bg=cfg.C("card"),
                 fg=cfg.C("accent") if day in ("Sun", "Sat") else cfg.C("text2"),
                 anchor="center",
-                pady=6,
+                pady=2 if compact else 6,
             )
             lbl.grid(row=0, column=col, sticky="ew")
 
@@ -492,11 +527,10 @@ class CalendarView(tk.Frame):
 
         for col in range(7):
             grid.columnconfigure(col, weight=1, uniform="cal_col")
-        for row in range(6):
+        for row in range(week_count):
             grid.rowconfigure(row, weight=1, uniform="cal_row")
 
         today = date.today()
-        days = _month_days(self._cursor.year, self._cursor.month)
 
         for idx, d in enumerate(days):
             row, col = divmod(idx, 7)
@@ -527,10 +561,12 @@ class CalendarView(tk.Frame):
                 bg=cell_bg,
                 highlightthickness=border_w,
                 highlightbackground=border_color,
-                padx=6,
-                pady=4,
+                height=row_height,
+                padx=3 if compact else 6,
+                pady=1 if compact else 4,
                 cursor="hand2",
             )
+            cell.grid_propagate(False)
             cell.grid(row=row, column=col, padx=1, pady=1, sticky="nsew")
 
             # Top Line inside Cell: Day Number (Left) + Item Count (Right)
@@ -582,13 +618,13 @@ class CalendarView(tk.Frame):
                 w.bind("<Button-1>", lambda _, t=d: _click_cell(t))
                 w.bind("<Double-Button-1>", lambda _, t=d: _dbl_click_cell(t))
 
-            # Event chips container (Max 2 clean chips so rows NEVER look cluttered)
+            # Keep month cells compact so all date rows remain visible.
             chips_box = tk.Frame(cell, bg=cell_bg)
             chips_box.pack(fill="both", expand=True)
             chips_box.bind("<Button-1>", lambda _, t=d: _click_cell(t))
             chips_box.bind("<Double-Button-1>", lambda _, t=d: _dbl_click_cell(t))
 
-            for item in items[:2]:
+            for item in items[:0 if compact else 1]:
                 is_task = item.get("isTask")
                 chip_bg = cfg.C("card2") if cell_bg == cfg.C("card") else cfg.C("card")
                 bar_color = cfg.C("accent3") if is_task else cfg.C("accent")
@@ -630,10 +666,10 @@ class CalendarView(tk.Frame):
                 chip.bind("<Button-1>", lambda _, ev=item: _open_event(ev))
                 lbl.bind("<Button-1>", lambda _, ev=item: _open_event(ev))
 
-            if len(items) > 2:
+            if len(items) > 1 and not compact:
                 more_lbl = tk.Label(
                     chips_box,
-                    text=f"+{len(items)-2} more",
+                    text=f"+{len(items)-1} more",
                     font=cfg.FONT["xs_b"],
                     bg=cell_bg,
                     fg=cfg.C("accent"),
