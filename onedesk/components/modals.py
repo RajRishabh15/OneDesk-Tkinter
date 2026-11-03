@@ -4,6 +4,7 @@ Reusable Toplevel dialogs for Notes, Tasks, Events, and Confirmations.
 Styled for Windows native dark/light modes with pinned action bars and responsive layouts.
 """
 
+import calendar
 from datetime import date
 import tkinter as tk
 from .. import config as cfg
@@ -54,7 +55,7 @@ def _labeled_entry(parent, label_text: str, textvariable: tk.StringVar, placehol
 
 
 def _labeled_date_entry(parent, label_text: str, textvariable: tk.StringVar) -> tk.Entry:
-    """Pack a (Label, Date Entry, 'Today' button) row."""
+    """Pack a date entry with a compact popup calendar button."""
     row = tk.Frame(parent, bg=cfg.C("card"))
     row.pack(fill="x", pady=(0, 10))
     tk.Label(
@@ -66,13 +67,81 @@ def _labeled_date_entry(parent, label_text: str, textvariable: tk.StringVar) -> 
         width=13,
         anchor="w",
     ).pack(side="left")
-    entry = make_entry(row, textvariable=textvariable, width=20)
+    entry = make_entry(row, textvariable=textvariable, width=24)
     entry.pack(side="left", fill="x", expand=True, padx=(0, 6))
 
-    def _set_today():
-        textvariable.set(date.today().isoformat())
+    def _open_calendar():
+        try:
+            selected = date.fromisoformat(textvariable.get().strip())
+        except ValueError:
+            selected = date.today()
+        month_state = {"year": selected.year, "month": selected.month}
 
-    make_button(row, "Today", command=_set_today, variant="secondary").pack(side="left")
+        picker = tk.Toplevel(parent.winfo_toplevel())
+        picker.title("Select date")
+        picker.configure(bg=cfg.C("card"))
+        picker.resizable(False, False)
+        picker.transient(parent.winfo_toplevel())
+        picker.geometry(f"280x300+{calendar_btn.winfo_rootx()}+{calendar_btn.winfo_rooty() + calendar_btn.winfo_height()}")
+
+        def _close():
+            if picker.winfo_exists():
+                picker.destroy()
+            try:
+                parent.winfo_toplevel().grab_set()
+            except tk.TclError:
+                pass
+
+        def _choose(day):
+            textvariable.set(date(month_state["year"], month_state["month"], day).isoformat())
+            _close()
+
+        header = tk.Frame(picker, bg=cfg.C("card"))
+        header.pack(fill="x", padx=10, pady=8)
+        grid = tk.Frame(picker, bg=cfg.C("card"))
+        grid.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+
+        def _render():
+            for child in header.winfo_children():
+                child.destroy()
+            for child in grid.winfo_children():
+                child.destroy()
+
+            def _shift_month(amount):
+                year, month = month_state["year"], month_state["month"] + amount
+                if month < 1:
+                    year, month = year - 1, 12
+                elif month > 12:
+                    year, month = year + 1, 1
+                month_state.update(year=year, month=month)
+                _render()
+
+            make_button(header, "‹", command=lambda: _shift_month(-1), variant="ghost").pack(side="left")
+            tk.Label(
+                header,
+                text=f"{calendar.month_name[month_state['month']]} {month_state['year']}",
+                font=cfg.FONT["sm_b"], bg=cfg.C("card"), fg=cfg.C("text"),
+            ).pack(side="left", expand=True)
+            make_button(header, "›", command=lambda: _shift_month(1), variant="ghost").pack(side="right")
+
+            for col, weekday in enumerate(("Mo", "Tu", "We", "Th", "Fr", "Sa", "Su")):
+                tk.Label(grid, text=weekday, font=cfg.FONT["xs_b"], bg=cfg.C("card"), fg=cfg.C("text2"), width=4).grid(row=0, column=col, pady=3)
+            for row_index, week in enumerate(calendar.monthcalendar(month_state["year"], month_state["month"]), start=1):
+                for col, day in enumerate(week):
+                    if day:
+                        make_button(
+                            grid, str(day), command=lambda d=day: _choose(d), variant="secondary"
+                        ).grid(row=row_index, column=col, padx=1, pady=1, sticky="nsew")
+
+        _render()
+        picker.protocol("WM_DELETE_WINDOW", _close)
+        picker.bind("<Escape>", lambda _event: _close())
+        picker.grab_set()
+        picker.focus_force()
+
+    calendar_btn = make_button(row, "📅", command=_open_calendar, variant="secondary")
+    calendar_btn.configure(width=3)
+    calendar_btn.pack(side="left")
     return entry
 
 
