@@ -28,4 +28,5 @@ Thumbs.db
 # MySQL credentials - never commit this
 config.ini
 .env
+.env.local
 
