@@ -3,6 +3,12 @@
 -- This script is safe on a fresh database and does not drop existing objects.
 -- Existing tables are not altered by CREATE TABLE IF NOT EXISTS; back up and
 -- plan a separate migration before applying this schema to an older database.
+--
+-- IMPORTANT: because category deletion is RESTRICTed while notes/tasks refer
+-- to it, delete a user explicitly in this order inside one transaction:
+-- notes, tasks, events, tags, categories, then users. Deleting notes/tags
+-- cascades their note_tags rows. Do not rely on DELETE FROM users to cascade
+-- through categories: category RESTRICT is intentionally preserved.
 
 CREATE DATABASE IF NOT EXISTS onedesk
     CHARACTER SET utf8mb4
@@ -37,9 +43,9 @@ CREATE TABLE IF NOT EXISTS categories (
     updated_at    DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     UNIQUE KEY uq_categories_user_type_name (user_id, category_type, name),
-    UNIQUE KEY uq_categories_id_user (id, user_id),
     UNIQUE KEY uq_categories_id_user_type (id, user_id, category_type),
-    KEY ix_categories_user_type (user_id, category_type),
+    -- Categories must exist before notes/tasks; category_id is intentionally
+    -- NOT NULL so every item has a user-owned, module-specific category.
     CONSTRAINT chk_categories_type CHECK (BINARY category_type IN ('note', 'task')),
     CONSTRAINT fk_categories_user FOREIGN KEY (user_id)
         REFERENCES users (id) ON UPDATE RESTRICT ON DELETE CASCADE
@@ -83,7 +89,6 @@ CREATE TABLE IF NOT EXISTS tasks (
     created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
-    UNIQUE KEY uq_tasks_id_user (id, user_id),
     KEY ix_tasks_user_status_due (user_id, status, due_date),
     KEY ix_tasks_user_category (user_id, category_id),
     KEY ix_tasks_user_due (user_id, due_date),
@@ -108,7 +113,6 @@ CREATE TABLE IF NOT EXISTS events (
     created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
-    UNIQUE KEY uq_events_id_user (id, user_id),
     KEY ix_events_user_date_time (user_id, event_date, event_time),
     CONSTRAINT fk_events_user FOREIGN KEY (user_id)
         REFERENCES users (id) ON UPDATE RESTRICT ON DELETE CASCADE
@@ -123,7 +127,6 @@ CREATE TABLE IF NOT EXISTS tags (
     PRIMARY KEY (id),
     UNIQUE KEY uq_tags_user_name (user_id, name),
     UNIQUE KEY uq_tags_id_user (id, user_id),
-    KEY ix_tags_user (user_id),
     CONSTRAINT fk_tags_user FOREIGN KEY (user_id)
         REFERENCES users (id) ON UPDATE RESTRICT ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARACTER SET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -134,6 +137,7 @@ CREATE TABLE IF NOT EXISTS note_tags (
     user_id    CHAR(36) NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (note_id, tag_id),
+    KEY ix_note_tags_note_user (note_id, user_id),
     KEY ix_note_tags_tag_user (tag_id, user_id),
     CONSTRAINT fk_note_tags_note_user FOREIGN KEY (note_id, user_id)
         REFERENCES notes (id, user_id) ON UPDATE RESTRICT ON DELETE CASCADE,
