@@ -9,6 +9,7 @@ from datetime import date
 import tkinter as tk
 from .. import config as cfg
 from ..platform_helpers import apply_window_theme, center_window
+from ..time_utils import format_time_12h
 from .ui_helpers import make_button, make_entry, make_text
 
 
@@ -142,6 +143,84 @@ def _labeled_date_entry(parent, label_text: str, textvariable: tk.StringVar) -> 
     calendar_btn = make_button(row, "📅", command=_open_calendar, variant="secondary")
     calendar_btn.configure(width=3)
     calendar_btn.pack(side="left")
+    return entry
+
+
+def _labeled_time_entry(parent, label_text: str, textvariable: tk.StringVar) -> tk.Entry:
+    """Pack a time entry with a clock button for choosing hours and minutes."""
+    row = tk.Frame(parent, bg=cfg.C("card"))
+    row.pack(fill="x", pady=(0, 10))
+    tk.Label(
+        row, text=label_text, font=cfg.FONT["xs_b"], bg=cfg.C("card"),
+        fg=cfg.C("text2"), width=13, anchor="w",
+    ).pack(side="left")
+    entry = make_entry(row, textvariable=textvariable, width=24)
+    entry.pack(side="left", fill="x", expand=True, padx=(0, 6))
+
+    def _open_clock():
+        try:
+            time_text = format_time_12h(textvariable.get())
+            hour_text, rest = time_text.split(":", 1)
+            minute_text, period = rest.split()
+            hour, minute = int(hour_text), int(minute_text)
+            if not (1 <= hour <= 12 and 0 <= minute <= 59 and period in ("AM", "PM")):
+                raise ValueError
+        except (ValueError, TypeError):
+            hour, minute, period = 9, 0, "AM"
+
+        picker = tk.Toplevel(parent.winfo_toplevel())
+        picker.title("Select time")
+        picker.configure(bg=cfg.C("card"))
+        picker.resizable(False, False)
+        picker.transient(parent.winfo_toplevel())
+        picker.geometry(f"280x150+{clock_btn.winfo_rootx()}+{clock_btn.winfo_rooty() + clock_btn.winfo_height()}")
+
+        def _close():
+            if picker.winfo_exists():
+                picker.destroy()
+            try:
+                parent.winfo_toplevel().grab_set()
+            except tk.TclError:
+                pass
+
+        controls = tk.Frame(picker, bg=cfg.C("card"))
+        controls.pack(expand=True, pady=(18, 8))
+        hour_var = tk.StringVar(value=str(hour))
+        minute_var = tk.StringVar(value=f"{minute:02d}")
+        period_var = tk.StringVar(value=period)
+        _styled_combobox(controls, hour_var, [str(h) for h in range(1, 13)]).pack(side="left")
+        tk.Label(controls, text=":", font=cfg.FONT["lg_b"], bg=cfg.C("card"), fg=cfg.C("text")).pack(side="left", padx=4)
+        minute_picker = tk.Spinbox(
+            controls, from_=0, to=59, wrap=True, width=3, format="%02.0f",
+            textvariable=minute_var, font=cfg.FONT["sm_b"], justify="center",
+            bg=cfg.C("card2"), fg=cfg.C("text"), buttonbackground=cfg.C("card2"),
+            relief="flat", highlightthickness=1, highlightbackground=cfg.C("border"),
+        )
+        minute_picker.pack(side="left")
+        _styled_combobox(controls, period_var, ["AM", "PM"]).pack(side="left", padx=(6, 0))
+
+        def _set_time():
+            try:
+                chosen_hour = int(hour_var.get())
+                chosen_minute = int(minute_var.get())
+                if not (1 <= chosen_hour <= 12 and 0 <= chosen_minute <= 59):
+                    raise ValueError
+            except ValueError:
+                chosen_hour, chosen_minute = hour, minute
+                hour_var.set(str(hour))
+                minute_var.set(f"{minute:02d}")
+            textvariable.set(f"{chosen_hour:02d}:{chosen_minute:02d} {period_var.get()}")
+            _close()
+
+        make_button(picker, "Set time", command=_set_time, variant="primary").pack(pady=(0, 12))
+        picker.protocol("WM_DELETE_WINDOW", _close)
+        picker.bind("<Escape>", lambda _event: _close())
+        picker.grab_set()
+        picker.focus_force()
+
+    clock_btn = make_button(row, "🕒", command=_open_clock, variant="secondary")
+    clock_btn.configure(width=3)
+    clock_btn.pack(side="left")
     return entry
 
 
@@ -376,7 +455,7 @@ class EventDialog:
         def_d = default_date or date.today().isoformat()
         self._title_var    = tk.StringVar(value=event.get("title", "") if event else "")
         self._date_var     = tk.StringVar(value=event.get("date", def_d) if event else def_d)
-        self._time_var     = tk.StringVar(value=event.get("time", "09:00") if event else "09:00")
+        self._time_var     = tk.StringVar(value=format_time_12h(event.get("time", "09:00 AM")) if event else "09:00 AM")
         self._reminder_var = tk.BooleanVar(value=event.get("reminder", False) if event else False)
 
         self._win = _modal_window(parent, "Edit Event" if event else "New Event", width=480, height=480)
@@ -408,7 +487,7 @@ class EventDialog:
 
         _labeled_entry(body, "Title", self._title_var)
         _labeled_date_entry(body, "Date", self._date_var)
-        _labeled_entry(body, "Time (HH:MM)", self._time_var)
+        _labeled_time_entry(body, "Time", self._time_var)
 
         # Description
         tk.Label(
@@ -440,7 +519,7 @@ class EventDialog:
         payload = {
             "title":       self._title_var.get().strip() or "Untitled",
             "date":        self._date_var.get().strip(),
-            "time":        self._time_var.get().strip(),
+            "time":        format_time_12h(self._time_var.get().strip()),
             "description": self._desc_text.get("1.0", "end-1c"),
             "reminder":    self._reminder_var.get(),
         }

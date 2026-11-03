@@ -7,6 +7,7 @@ Displays categorized search results (Tasks, Notes, Events) directly beneath the 
 import tkinter as tk
 from .. import config as cfg
 from ..components.modals import TaskDialog, NoteDialog, EventDialog
+from ..time_utils import format_time_12h
 
 
 class SearchPopup:
@@ -324,7 +325,7 @@ class SearchPopup:
         if event.get("time"):
             tk.Label(
                 item,
-                text=event["time"],
+                text=format_time_12h(event["time"]),
                 font=cfg.FONT["xs_b"],
                 bg=cfg.C("card"),
                 fg=cfg.C("accent2"),

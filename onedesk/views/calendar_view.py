@@ -18,6 +18,7 @@ from ..components.ui_helpers import (
     make_button, make_separator, make_pill_badge, ScrollableFrame, RoundIconButton,
 )
 from ..components.modals import EventDialog, confirm
+from ..time_utils import format_time_12h, time_sort_key
 from ..importers import parse_events_file
 
 WEEKDAYS       = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
@@ -397,7 +398,7 @@ class CalendarView(tk.Frame):
                 top, text=f"✔ TASK · {prio}", bg=cfg.C("card"), fg=cfg.C("accent3"), font_key="xs_b", padx=6, pady=1,
             ).pack(side="left")
         else:
-            tm = item.get("time") or "All Day"
+            tm = format_time_12h(item.get("time")) or "All Day"
             rem = " 🔔" if item.get("reminder") else ""
             tk.Label(
                 top, text=f"{tm}{rem}", font=cfg.FONT["xs_b"], bg=cfg.C("card2"), fg=cfg.C("accent"),
@@ -604,7 +605,7 @@ class CalendarView(tk.Frame):
                 # Colored left accent indicator (3px)
                 tk.Frame(chip, bg=bar_color, width=3).pack(side="left", fill="y", padx=(0, 4))
 
-                label_text = f"✔ {item.get('title')}" if is_task else f"{item.get('time', '')} {item.get('title')}".strip()
+                label_text = f"✔ {item.get('title')}" if is_task else f"{format_time_12h(item.get('time', ''))} {item.get('title')}".strip()
                 # Clean text truncation
                 truncated = label_text if len(label_text) < 19 else label_text[:17] + "…"
 
@@ -733,7 +734,7 @@ class CalendarView(tk.Frame):
         tk.Frame(card, bg=accent, width=3).place(relx=0, rely=0, relheight=1)
 
         # Time
-        tm = item.get("time") or ("Task" if item.get("isTask") else "All Day")
+        tm = format_time_12h(item.get("time")) or ("Task" if item.get("isTask") else "All Day")
         rem = " 🔔" if item.get("reminder") else ""
         tk.Label(
             card, text=f"{tm}{rem}", font=cfg.FONT["xs_b"], bg=cfg.C("card2"), fg=cfg.C("accent"),
@@ -811,7 +812,7 @@ class CalendarView(tk.Frame):
             ).pack()
             return
 
-        for item in sorted(items, key=lambda i: (i.get("time") == "", i.get("time", ""))):
+        for item in sorted(items, key=lambda i: time_sort_key(i.get("time", ""))):
             self._render_detailed_event_card(inner, item)
 
     def _render_detailed_event_card(self, parent, item: dict):
@@ -845,7 +846,7 @@ class CalendarView(tk.Frame):
                 bg=cfg.C("card2"), fg=cfg.C("accent3"), font_key="xs_b", padx=6, pady=2,
             ).pack(side="left", padx=(0, 8))
         else:
-            tm = item.get("time") or "All Day"
+            tm = format_time_12h(item.get("time")) or "All Day"
             make_pill_badge(
                 meta_line, text=f"🕒 {tm}",
                 bg=cfg.C("card2"), fg=cfg.C("accent"), font_key="xs_b", padx=6, pady=2,
@@ -1010,7 +1011,7 @@ class CalendarView(tk.Frame):
                         "description": t.get("description", ""),
                     })
 
-        return sorted(items, key=lambda i: (i.get("time") == "", i.get("time", "")))
+        return sorted(items, key=lambda i: time_sort_key(i.get("time", "")))
 
     def _on_add_event(self, fields):
         self._store.add_event(**fields)
