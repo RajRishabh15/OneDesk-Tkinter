@@ -11,6 +11,7 @@ from .storage import (
     load_data, save_data, clear_all_data, export_backup, import_backup,
     make_sample_notes, make_sample_tasks, make_sample_events, KEYS,
 )
+from .time_utils import format_time_12h, time_sort_key
 
 
 class DataStore:
@@ -25,6 +26,10 @@ class DataStore:
         self.notes:  list[dict] = notes  if notes  is not None else make_sample_notes()
         self.tasks:  list[dict] = tasks  if tasks  is not None else make_sample_tasks()
         self.events: list[dict] = events if events is not None else make_sample_events()
+        self.events = [
+            {**event, "time": format_time_12h(event.get("time", ""))}
+            for event in self.events
+        ]
 
         self._persist()
 
@@ -190,6 +195,8 @@ class DataStore:
 
     # ── Events ───────────────────────────────────────────────────────────────
     def add_event(self, **fields) -> dict:
+        if fields.get("time"):
+            fields["time"] = format_time_12h(fields["time"])
         event = {
             "id": str(uuid.uuid4()),
             "reminder": False,
@@ -201,6 +208,8 @@ class DataStore:
         return event
 
     def update_event(self, event_id: str, **patch) -> None:
+        if patch.get("time"):
+            patch["time"] = format_time_12h(patch["time"])
         self.events = [{**e, **patch} if e["id"] == event_id else e for e in self.events]
         self._persist()
         self._notify()
@@ -220,7 +229,7 @@ class DataStore:
                 "id": str(uuid.uuid4()),
                 "title": title,
                 "date": str(e.get("date", date.today().isoformat())),
-                "time": str(e.get("time", "10:00")),
+                "time": format_time_12h(str(e.get("time", "10:00"))),
                 "reminder": bool(e.get("reminder", False)),
                 "description": str(e.get("description", "")).strip(),
             }
@@ -258,7 +267,7 @@ class DataStore:
         today = date.today().isoformat()
         return sorted(
             [e for e in self.events if e.get("date") == today],
-            key=lambda e: e.get("time", ""),
+            key=lambda e: time_sort_key(e.get("time", "")),
         )
 
     @property

@@ -18,6 +18,7 @@ from ..components.ui_helpers import (
     create_circular_avatar, RoundIconButton, make_pill_badge,
 )
 from ..components.modals import TaskDialog, EventDialog, NoteDialog
+from ..time_utils import format_time_12h
 from ..importers import parse_tasks_file, parse_notes_file, parse_events_file
 
 
@@ -591,7 +592,7 @@ class DashboardView(tk.Frame):
                 )
                 erow.pack(fill="x", pady=3)
 
-                time_txt = ev.get("time", "All day")
+                time_txt = format_time_12h(ev.get("time", "All day"))
                 make_pill_badge(
                     erow,
                     text=time_txt,

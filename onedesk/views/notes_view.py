@@ -205,7 +205,7 @@ class NotesView(tk.Frame):
 
     # ── Actions ──────────────────────────────────────────────────────────────
     def _open_new(self):
-        NoteDialog(self, on_save=self._store.add_note)
+        NoteDialog(self, on_save=lambda fields: self._store.add_note(**fields))
 
     def _open_edit(self, note):
         def _save(fields, nid=note["id"]):

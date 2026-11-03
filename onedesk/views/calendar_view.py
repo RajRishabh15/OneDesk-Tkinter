@@ -10,6 +10,7 @@ State-of-the-art desktop calendar experience:
 """
 
 import os
+import calendar
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from datetime import date, datetime, timedelta
@@ -18,6 +19,7 @@ from ..components.ui_helpers import (
     make_button, make_separator, make_pill_badge, ScrollableFrame, RoundIconButton,
 )
 from ..components.modals import EventDialog, confirm
+from ..time_utils import format_time_12h, time_sort_key
 from ..importers import parse_events_file
 
 WEEKDAYS       = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
@@ -29,15 +31,11 @@ MONTHS         = [
 
 
 def _month_days(year: int, month: int):
-    """Return list of 42 date objects for the 6-row monthly calendar grid."""
+    """Return complete Sunday-first weeks needed to display the month."""
     first = date(year, month, 1)
     start = first - timedelta(days=(first.weekday() + 1) % 7)
-    days = []
-    d = start
-    while len(days) < 42:
-        days.append(d)
-        d += timedelta(days=1)
-    return days
+    week_count = ((first.weekday() + 1) % 7 + calendar.monthrange(year, month)[1] + 6) // 7
+    return [start + timedelta(days=offset) for offset in range(week_count * 7)]
 
 
 class CalendarView(tk.Frame):
@@ -48,15 +46,30 @@ class CalendarView(tk.Frame):
         self._cursor = date.today()
         self._selected_date = date.today()
         self._view = "month"          # "month" | "week" | "day" | "agenda"
+        self._month_compact = None
+        self._month_row_height = None
+        self._resize_job = None
         self._filter_type = "all"     # "all" | "events" | "tasks"
         self._search_query = ""
         self._show_sidebar = False    # default clean full calendar, toggleable with "📋 Agenda Panel"
+        self._header_is_compact = None
+        self._header_resize_job = None
 
         self._store.subscribe(self._refresh)
         self._build()
 
     def destroy(self):
         self._store.unsubscribe(self._refresh)
+        if self._resize_job is not None:
+            try:
+                self.after_cancel(self._resize_job)
+            except tk.TclError:
+                pass
+        if self._header_resize_job is not None:
+            try:
+                self.after_cancel(self._header_resize_job)
+            except tk.TclError:
+                pass
         super().destroy()
 
     # ── UI Construction ───────────────────────────────────────────────────────
@@ -64,6 +77,7 @@ class CalendarView(tk.Frame):
         # 1. Clean Unified Header Toolbar
         self._header = tk.Frame(self, bg=cfg.C("bg"))
         self._header.pack(fill="x", padx=cfg.PAD, pady=(cfg.PAD, 8))
+        self._header.bind("<Configure>", self._on_header_resize, add="+")
         self._render_header()
 
         # 2. Main Body (Split View)
@@ -73,6 +87,7 @@ class CalendarView(tk.Frame):
         # Main Calendar Canvas
         self._main_content = tk.Frame(self._split_container, bg=cfg.C("bg"))
         self._main_content.pack(side="left", fill="both", expand=True)
+        self._main_content.bind("<Configure>", self._on_calendar_resize, add="+")
 
         # Right Slide-Out Sidebar (Day Agenda Drawer)
         self._sidebar = tk.Frame(
@@ -89,11 +104,250 @@ class CalendarView(tk.Frame):
         self._render_sidebar()
         self._render_view()
 
+    def _on_header_resize(self, _event=None):
+        if self._header_resize_job is not None:
+            try:
+                self.after_cancel(self._header_resize_job)
+            except tk.TclError:
+                pass
+        self._header_resize_job = self.after(50, self._sync_header_layout)
+
+    def _sync_header_layout(self):
+        self._header_resize_job = None
+        if not self.winfo_exists():
+            return
+        w = self._header.winfo_width()
+        if w <= 1:
+            return
+        is_compact = (w < 1040) or self._show_sidebar
+        if is_compact != getattr(self, "_header_is_compact", None):
+            self._header_is_compact = is_compact
+            self._render_header()
+
     # ── Clean, Streamlined Header Bar ─────────────────────────────────────────
     def _render_header(self):
         for w in self._header.winfo_children():
             w.destroy()
 
+        w = self._header.winfo_width()
+        if w <= 1:
+            top = self.winfo_toplevel()
+            if top and top.winfo_width() > 1:
+                w = top.winfo_width() - cfg.C("sidebar_w")
+            else:
+                w = cfg.WINDOW_W - cfg.C("sidebar_w")
+
+        is_compact = (w < 1040) or self._show_sidebar
+        self._header_is_compact = is_compact
+
+        if is_compact:
+            self._render_header_compact(w)
+        else:
+            self._render_header_wide()
+
+    def _render_header_compact(self, width: int = 800):
+        is_ultra_compact = (width < 640)
+
+        # ── Row 1: Title, Navigation, Action Buttons ──
+        row1 = tk.Frame(self._header, bg=cfg.C("bg"))
+        row1.pack(fill="x", pady=(0, 6))
+
+        # Left: Title + Nav Capsule + Period
+        left_box = tk.Frame(row1, bg=cfg.C("bg"))
+        left_box.pack(side="left")
+
+        title_text = "📅  Calendar" if not is_ultra_compact else "📅"
+        tk.Label(
+            left_box,
+            text=title_text,
+            font=cfg.FONT["lg_b"] if not is_ultra_compact else cfg.FONT["md_b"],
+            bg=cfg.C("bg"),
+            fg=cfg.C("text"),
+        ).pack(side="left", padx=(0, 8 if is_ultra_compact else 12))
+
+        # Nav capsule: ‹  Today  ›
+        nav_capsule = tk.Frame(
+            left_box,
+            bg=cfg.C("card2"),
+            highlightthickness=1,
+            highlightbackground=cfg.C("border"),
+            padx=2,
+            pady=2,
+        )
+        nav_capsule.pack(side="left", padx=(0, 8 if is_ultra_compact else 10))
+
+        tk.Button(
+            nav_capsule,
+            text="‹",
+            font=cfg.FONT["sm_b"],
+            bg=cfg.C("card2"),
+            fg=cfg.C("text"),
+            activebackground=cfg.C("accent"),
+            activeforeground="#ffffff",
+            relief="flat",
+            bd=0,
+            padx=6,
+            pady=2,
+            cursor="hand2",
+            command=self._prev,
+        ).pack(side="left")
+
+        tk.Button(
+            nav_capsule,
+            text="Today",
+            font=cfg.FONT["xs_b"],
+            bg=cfg.C("card"),
+            fg=cfg.C("accent"),
+            activebackground=cfg.C("accent"),
+            activeforeground="#ffffff",
+            relief="flat",
+            bd=0,
+            padx=8,
+            pady=2,
+            cursor="hand2",
+            command=self._today,
+        ).pack(side="left", padx=2)
+
+        tk.Button(
+            nav_capsule,
+            text="›",
+            font=cfg.FONT["sm_b"],
+            bg=cfg.C("card2"),
+            fg=cfg.C("text"),
+            activebackground=cfg.C("accent"),
+            activeforeground="#ffffff",
+            relief="flat",
+            bd=0,
+            padx=6,
+            pady=2,
+            cursor="hand2",
+            command=self._next,
+        ).pack(side="left")
+
+        # Period Header (e.g. November 2026)
+        tk.Label(
+            left_box,
+            text=self._period_text(),
+            font=cfg.FONT["md_b"] if not is_ultra_compact else cfg.FONT["sm_b"],
+            bg=cfg.C("bg"),
+            fg=cfg.C("text"),
+        ).pack(side="left")
+
+        # Right: Action Buttons (📥 Import, + Event, 📋 Agenda)
+        actions_box = tk.Frame(row1, bg=cfg.C("bg"))
+        actions_box.pack(side="right")
+
+        import_text = "📥 Import" if not is_ultra_compact else "📥"
+        make_button(
+            actions_box,
+            text=import_text,
+            command=self._import_events,
+            variant="ghost",
+            font=cfg.FONT["xs_b"],
+            padx=8 if not is_ultra_compact else 6,
+            pady=3,
+        ).pack(side="left", padx=(0, 6))
+
+        event_text = "+ Event"
+        make_button(
+            actions_box,
+            text=event_text,
+            command=lambda: EventDialog(
+                self, self._on_add_event, default_date=self._selected_date.isoformat()
+            ),
+            variant="primary",
+            font=cfg.FONT["xs_b"],
+            padx=10 if not is_ultra_compact else 8,
+            pady=3,
+        ).pack(side="left", padx=(0, 6))
+
+        side_active = self._show_sidebar
+        agenda_text = ("📋 Agenda" if not side_active else "✕ Close") if not is_ultra_compact else ("📋" if not side_active else "✕")
+        tk.Button(
+            actions_box,
+            text=agenda_text,
+            font=cfg.FONT["xs_b"],
+            bg=cfg.C("card2") if not side_active else cfg.C("card"),
+            fg=cfg.C("accent") if not side_active else cfg.C("text2"),
+            activebackground=cfg.C("accent"),
+            activeforeground="#ffffff",
+            relief="flat",
+            bd=0,
+            padx=8 if not is_ultra_compact else 6,
+            pady=3,
+            cursor="hand2",
+            command=self._toggle_sidebar,
+        ).pack(side="left")
+
+        # ── Row 2: View Switcher (Month | Week | Day | Agenda) & Filter Capsule ──
+        row2 = tk.Frame(self._header, bg=cfg.C("bg"))
+        row2.pack(fill="x")
+
+        # View Capsule on Left
+        view_capsule = tk.Frame(
+            row2,
+            bg=cfg.C("card2"),
+            highlightthickness=1,
+            highlightbackground=cfg.C("border"),
+            padx=2,
+            pady=2,
+        )
+        view_capsule.pack(side="left")
+
+        views = [
+            ("month", "Month"),
+            ("week", "Week"),
+            ("day", "Day"),
+            ("agenda", "Agenda"),
+        ]
+        for v_key, v_label in views:
+            is_active = (self._view == v_key)
+            tk.Button(
+                view_capsule,
+                text=v_label,
+                font=cfg.FONT["xs_b"],
+                fg="#ffffff" if is_active else cfg.C("text2"),
+                bg=cfg.C("accent") if is_active else cfg.C("card2"),
+                activeforeground="#ffffff",
+                activebackground=cfg.C("accent"),
+                relief="flat",
+                bd=0,
+                padx=8 if is_ultra_compact else 10,
+                pady=2,
+                cursor="hand2",
+                command=lambda v=v_key: self._set_view(v),
+            ).pack(side="left")
+
+        # Filter Capsule on Right
+        filter_capsule = tk.Frame(
+            row2,
+            bg=cfg.C("card2"),
+            highlightthickness=1,
+            highlightbackground=cfg.C("border"),
+            padx=2,
+            pady=2,
+        )
+        filter_capsule.pack(side="right")
+
+        for f_key, f_lbl in [("all", "All"), ("events", "Events"), ("tasks", "Tasks")]:
+            is_active = (self._filter_type == f_key)
+            tk.Button(
+                filter_capsule,
+                text=f_lbl,
+                font=cfg.FONT["xs"],
+                fg="#ffffff" if is_active else cfg.C("text2"),
+                bg=cfg.C("accent") if is_active else cfg.C("card2"),
+                activeforeground="#ffffff",
+                activebackground=cfg.C("accent"),
+                relief="flat",
+                bd=0,
+                padx=7 if is_ultra_compact else 8,
+                pady=2,
+                cursor="hand2",
+                command=lambda k=f_key: self._set_filter(k),
+            ).pack(side="left")
+
+    def _render_header_wide(self):
         bar = tk.Frame(self._header, bg=cfg.C("bg"))
         bar.pack(fill="x")
 
@@ -397,7 +651,7 @@ class CalendarView(tk.Frame):
                 top, text=f"✔ TASK · {prio}", bg=cfg.C("card"), fg=cfg.C("accent3"), font_key="xs_b", padx=6, pady=1,
             ).pack(side="left")
         else:
-            tm = item.get("time") or "All Day"
+            tm = format_time_12h(item.get("time")) or "All Day"
             rem = " 🔔" if item.get("reminder") else ""
             tk.Label(
                 top, text=f"{tm}{rem}", font=cfg.FONT["xs_b"], bg=cfg.C("card2"), fg=cfg.C("accent"),
@@ -463,10 +717,39 @@ class CalendarView(tk.Frame):
         elif self._view == "agenda":
             self._render_agenda()
 
+    def _on_calendar_resize(self, _event=None):
+        if self._view == "month":
+            if self._resize_job is not None:
+                self.after_cancel(self._resize_job)
+            self._resize_job = self.after(100, self._sync_month_density)
+
+    def _sync_month_density(self):
+        if not self.winfo_exists() or self._view != "month":
+            return
+        week_count = len(_month_days(self._cursor.year, self._cursor.month)) // 7
+        row_height = max(25, (self._main_content.winfo_height() - 36) // week_count)
+        compact = row_height < 68 or self._main_content.winfo_width() < 700
+        self._resize_job = None
+        must_resize_cells = (
+            self._month_row_height is None
+            or row_height < self._month_row_height
+            or row_height - self._month_row_height >= 20
+        )
+        if compact != self._month_compact or must_resize_cells:
+            self._month_compact = compact
+            self._render_view()
+
     # ── 1. Geometric Balanced Month View (Uniform Pixel-Perfect Rows) ────────
     def _render_month(self):
         container = tk.Frame(self._main_content, bg=cfg.C("bg"))
         container.pack(fill="both", expand=True)
+        days = _month_days(self._cursor.year, self._cursor.month)
+        week_count = len(days) // 7
+        available_height = self._main_content.winfo_height()
+        row_height = max(25, (available_height - 36) // week_count)
+        compact = row_height < 68 or self._main_content.winfo_width() < 700
+        self._month_compact = compact
+        self._month_row_height = row_height
 
         # ── Weekday Strip (Uniformly Aligned) ─────────────────────────────────
         weekday_bar = tk.Frame(container, bg=cfg.C("card"), height=30)
@@ -481,7 +764,7 @@ class CalendarView(tk.Frame):
                 bg=cfg.C("card"),
                 fg=cfg.C("accent") if day in ("Sun", "Sat") else cfg.C("text2"),
                 anchor="center",
-                pady=6,
+                pady=2 if compact else 6,
             )
             lbl.grid(row=0, column=col, sticky="ew")
 
@@ -491,11 +774,10 @@ class CalendarView(tk.Frame):
 
         for col in range(7):
             grid.columnconfigure(col, weight=1, uniform="cal_col")
-        for row in range(6):
+        for row in range(week_count):
             grid.rowconfigure(row, weight=1, uniform="cal_row")
 
         today = date.today()
-        days = _month_days(self._cursor.year, self._cursor.month)
 
         for idx, d in enumerate(days):
             row, col = divmod(idx, 7)
@@ -526,10 +808,12 @@ class CalendarView(tk.Frame):
                 bg=cell_bg,
                 highlightthickness=border_w,
                 highlightbackground=border_color,
-                padx=6,
-                pady=4,
+                height=row_height,
+                padx=3 if compact else 6,
+                pady=1 if compact else 4,
                 cursor="hand2",
             )
+            cell.grid_propagate(False)
             cell.grid(row=row, column=col, padx=1, pady=1, sticky="nsew")
 
             # Top Line inside Cell: Day Number (Left) + Item Count (Right)
@@ -581,13 +865,13 @@ class CalendarView(tk.Frame):
                 w.bind("<Button-1>", lambda _, t=d: _click_cell(t))
                 w.bind("<Double-Button-1>", lambda _, t=d: _dbl_click_cell(t))
 
-            # Event chips container (Max 2 clean chips so rows NEVER look cluttered)
+            # Keep month cells compact so all date rows remain visible.
             chips_box = tk.Frame(cell, bg=cell_bg)
             chips_box.pack(fill="both", expand=True)
             chips_box.bind("<Button-1>", lambda _, t=d: _click_cell(t))
             chips_box.bind("<Double-Button-1>", lambda _, t=d: _dbl_click_cell(t))
 
-            for item in items[:2]:
+            for item in items[:0 if compact else 1]:
                 is_task = item.get("isTask")
                 chip_bg = cfg.C("card2") if cell_bg == cfg.C("card") else cfg.C("card")
                 bar_color = cfg.C("accent3") if is_task else cfg.C("accent")
@@ -604,7 +888,7 @@ class CalendarView(tk.Frame):
                 # Colored left accent indicator (3px)
                 tk.Frame(chip, bg=bar_color, width=3).pack(side="left", fill="y", padx=(0, 4))
 
-                label_text = f"✔ {item.get('title')}" if is_task else f"{item.get('time', '')} {item.get('title')}".strip()
+                label_text = f"✔ {item.get('title')}" if is_task else f"{format_time_12h(item.get('time', ''))} {item.get('title')}".strip()
                 # Clean text truncation
                 truncated = label_text if len(label_text) < 19 else label_text[:17] + "…"
 
@@ -629,10 +913,10 @@ class CalendarView(tk.Frame):
                 chip.bind("<Button-1>", lambda _, ev=item: _open_event(ev))
                 lbl.bind("<Button-1>", lambda _, ev=item: _open_event(ev))
 
-            if len(items) > 2:
+            if len(items) > 1 and not compact:
                 more_lbl = tk.Label(
                     chips_box,
-                    text=f"+{len(items)-2} more",
+                    text=f"+{len(items)-1} more",
                     font=cfg.FONT["xs_b"],
                     bg=cell_bg,
                     fg=cfg.C("accent"),
@@ -733,7 +1017,7 @@ class CalendarView(tk.Frame):
         tk.Frame(card, bg=accent, width=3).place(relx=0, rely=0, relheight=1)
 
         # Time
-        tm = item.get("time") or ("Task" if item.get("isTask") else "All Day")
+        tm = format_time_12h(item.get("time")) or ("Task" if item.get("isTask") else "All Day")
         rem = " 🔔" if item.get("reminder") else ""
         tk.Label(
             card, text=f"{tm}{rem}", font=cfg.FONT["xs_b"], bg=cfg.C("card2"), fg=cfg.C("accent"),
@@ -811,7 +1095,7 @@ class CalendarView(tk.Frame):
             ).pack()
             return
 
-        for item in sorted(items, key=lambda i: (i.get("time") == "", i.get("time", ""))):
+        for item in sorted(items, key=lambda i: time_sort_key(i.get("time", ""))):
             self._render_detailed_event_card(inner, item)
 
     def _render_detailed_event_card(self, parent, item: dict):
@@ -845,7 +1129,7 @@ class CalendarView(tk.Frame):
                 bg=cfg.C("card2"), fg=cfg.C("accent3"), font_key="xs_b", padx=6, pady=2,
             ).pack(side="left", padx=(0, 8))
         else:
-            tm = item.get("time") or "All Day"
+            tm = format_time_12h(item.get("time")) or "All Day"
             make_pill_badge(
                 meta_line, text=f"🕒 {tm}",
                 bg=cfg.C("card2"), fg=cfg.C("accent"), font_key="xs_b", padx=6, pady=2,
@@ -1010,7 +1294,7 @@ class CalendarView(tk.Frame):
                         "description": t.get("description", ""),
                     })
 
-        return sorted(items, key=lambda i: (i.get("time") == "", i.get("time", "")))
+        return sorted(items, key=lambda i: time_sort_key(i.get("time", "")))
 
     def _on_add_event(self, fields):
         self._store.add_event(**fields)
