@@ -52,6 +52,8 @@ class CalendarView(tk.Frame):
         self._filter_type = "all"     # "all" | "events" | "tasks"
         self._search_query = ""
         self._show_sidebar = False    # default clean full calendar, toggleable with "📋 Agenda Panel"
+        self._header_is_compact = None
+        self._header_resize_job = None
 
         self._store.subscribe(self._refresh)
         self._build()
@@ -63,6 +65,11 @@ class CalendarView(tk.Frame):
                 self.after_cancel(self._resize_job)
             except tk.TclError:
                 pass
+        if self._header_resize_job is not None:
+            try:
+                self.after_cancel(self._header_resize_job)
+            except tk.TclError:
+                pass
         super().destroy()
 
     # ── UI Construction ───────────────────────────────────────────────────────
@@ -70,6 +77,7 @@ class CalendarView(tk.Frame):
         # 1. Clean Unified Header Toolbar
         self._header = tk.Frame(self, bg=cfg.C("bg"))
         self._header.pack(fill="x", padx=cfg.PAD, pady=(cfg.PAD, 8))
+        self._header.bind("<Configure>", self._on_header_resize, add="+")
         self._render_header()
 
         # 2. Main Body (Split View)
@@ -96,11 +104,250 @@ class CalendarView(tk.Frame):
         self._render_sidebar()
         self._render_view()
 
+    def _on_header_resize(self, _event=None):
+        if self._header_resize_job is not None:
+            try:
+                self.after_cancel(self._header_resize_job)
+            except tk.TclError:
+                pass
+        self._header_resize_job = self.after(50, self._sync_header_layout)
+
+    def _sync_header_layout(self):
+        self._header_resize_job = None
+        if not self.winfo_exists():
+            return
+        w = self._header.winfo_width()
+        if w <= 1:
+            return
+        is_compact = (w < 1040) or self._show_sidebar
+        if is_compact != getattr(self, "_header_is_compact", None):
+            self._header_is_compact = is_compact
+            self._render_header()
+
     # ── Clean, Streamlined Header Bar ─────────────────────────────────────────
     def _render_header(self):
         for w in self._header.winfo_children():
             w.destroy()
 
+        w = self._header.winfo_width()
+        if w <= 1:
+            top = self.winfo_toplevel()
+            if top and top.winfo_width() > 1:
+                w = top.winfo_width() - cfg.C("sidebar_w")
+            else:
+                w = cfg.WINDOW_W - cfg.C("sidebar_w")
+
+        is_compact = (w < 1040) or self._show_sidebar
+        self._header_is_compact = is_compact
+
+        if is_compact:
+            self._render_header_compact(w)
+        else:
+            self._render_header_wide()
+
+    def _render_header_compact(self, width: int = 800):
+        is_ultra_compact = (width < 640)
+
+        # ── Row 1: Title, Navigation, Action Buttons ──
+        row1 = tk.Frame(self._header, bg=cfg.C("bg"))
+        row1.pack(fill="x", pady=(0, 6))
+
+        # Left: Title + Nav Capsule + Period
+        left_box = tk.Frame(row1, bg=cfg.C("bg"))
+        left_box.pack(side="left")
+
+        title_text = "📅  Calendar" if not is_ultra_compact else "📅"
+        tk.Label(
+            left_box,
+            text=title_text,
+            font=cfg.FONT["lg_b"] if not is_ultra_compact else cfg.FONT["md_b"],
+            bg=cfg.C("bg"),
+            fg=cfg.C("text"),
+        ).pack(side="left", padx=(0, 8 if is_ultra_compact else 12))
+
+        # Nav capsule: ‹  Today  ›
+        nav_capsule = tk.Frame(
+            left_box,
+            bg=cfg.C("card2"),
+            highlightthickness=1,
+            highlightbackground=cfg.C("border"),
+            padx=2,
+            pady=2,
+        )
+        nav_capsule.pack(side="left", padx=(0, 8 if is_ultra_compact else 10))
+
+        tk.Button(
+            nav_capsule,
+            text="‹",
+            font=cfg.FONT["sm_b"],
+            bg=cfg.C("card2"),
+            fg=cfg.C("text"),
+            activebackground=cfg.C("accent"),
+            activeforeground="#ffffff",
+            relief="flat",
+            bd=0,
+            padx=6,
+            pady=2,
+            cursor="hand2",
+            command=self._prev,
+        ).pack(side="left")
+
+        tk.Button(
+            nav_capsule,
+            text="Today",
+            font=cfg.FONT["xs_b"],
+            bg=cfg.C("card"),
+            fg=cfg.C("accent"),
+            activebackground=cfg.C("accent"),
+            activeforeground="#ffffff",
+            relief="flat",
+            bd=0,
+            padx=8,
+            pady=2,
+            cursor="hand2",
+            command=self._today,
+        ).pack(side="left", padx=2)
+
+        tk.Button(
+            nav_capsule,
+            text="›",
+            font=cfg.FONT["sm_b"],
+            bg=cfg.C("card2"),
+            fg=cfg.C("text"),
+            activebackground=cfg.C("accent"),
+            activeforeground="#ffffff",
+            relief="flat",
+            bd=0,
+            padx=6,
+            pady=2,
+            cursor="hand2",
+            command=self._next,
+        ).pack(side="left")
+
+        # Period Header (e.g. November 2026)
+        tk.Label(
+            left_box,
+            text=self._period_text(),
+            font=cfg.FONT["md_b"] if not is_ultra_compact else cfg.FONT["sm_b"],
+            bg=cfg.C("bg"),
+            fg=cfg.C("text"),
+        ).pack(side="left")
+
+        # Right: Action Buttons (📥 Import, + Event, 📋 Agenda)
+        actions_box = tk.Frame(row1, bg=cfg.C("bg"))
+        actions_box.pack(side="right")
+
+        import_text = "📥 Import" if not is_ultra_compact else "📥"
+        make_button(
+            actions_box,
+            text=import_text,
+            command=self._import_events,
+            variant="ghost",
+            font=cfg.FONT["xs_b"],
+            padx=8 if not is_ultra_compact else 6,
+            pady=3,
+        ).pack(side="left", padx=(0, 6))
+
+        event_text = "+ Event"
+        make_button(
+            actions_box,
+            text=event_text,
+            command=lambda: EventDialog(
+                self, self._on_add_event, default_date=self._selected_date.isoformat()
+            ),
+            variant="primary",
+            font=cfg.FONT["xs_b"],
+            padx=10 if not is_ultra_compact else 8,
+            pady=3,
+        ).pack(side="left", padx=(0, 6))
+
+        side_active = self._show_sidebar
+        agenda_text = ("📋 Agenda" if not side_active else "✕ Close") if not is_ultra_compact else ("📋" if not side_active else "✕")
+        tk.Button(
+            actions_box,
+            text=agenda_text,
+            font=cfg.FONT["xs_b"],
+            bg=cfg.C("card2") if not side_active else cfg.C("card"),
+            fg=cfg.C("accent") if not side_active else cfg.C("text2"),
+            activebackground=cfg.C("accent"),
+            activeforeground="#ffffff",
+            relief="flat",
+            bd=0,
+            padx=8 if not is_ultra_compact else 6,
+            pady=3,
+            cursor="hand2",
+            command=self._toggle_sidebar,
+        ).pack(side="left")
+
+        # ── Row 2: View Switcher (Month | Week | Day | Agenda) & Filter Capsule ──
+        row2 = tk.Frame(self._header, bg=cfg.C("bg"))
+        row2.pack(fill="x")
+
+        # View Capsule on Left
+        view_capsule = tk.Frame(
+            row2,
+            bg=cfg.C("card2"),
+            highlightthickness=1,
+            highlightbackground=cfg.C("border"),
+            padx=2,
+            pady=2,
+        )
+        view_capsule.pack(side="left")
+
+        views = [
+            ("month", "Month"),
+            ("week", "Week"),
+            ("day", "Day"),
+            ("agenda", "Agenda"),
+        ]
+        for v_key, v_label in views:
+            is_active = (self._view == v_key)
+            tk.Button(
+                view_capsule,
+                text=v_label,
+                font=cfg.FONT["xs_b"],
+                fg="#ffffff" if is_active else cfg.C("text2"),
+                bg=cfg.C("accent") if is_active else cfg.C("card2"),
+                activeforeground="#ffffff",
+                activebackground=cfg.C("accent"),
+                relief="flat",
+                bd=0,
+                padx=8 if is_ultra_compact else 10,
+                pady=2,
+                cursor="hand2",
+                command=lambda v=v_key: self._set_view(v),
+            ).pack(side="left")
+
+        # Filter Capsule on Right
+        filter_capsule = tk.Frame(
+            row2,
+            bg=cfg.C("card2"),
+            highlightthickness=1,
+            highlightbackground=cfg.C("border"),
+            padx=2,
+            pady=2,
+        )
+        filter_capsule.pack(side="right")
+
+        for f_key, f_lbl in [("all", "All"), ("events", "Events"), ("tasks", "Tasks")]:
+            is_active = (self._filter_type == f_key)
+            tk.Button(
+                filter_capsule,
+                text=f_lbl,
+                font=cfg.FONT["xs"],
+                fg="#ffffff" if is_active else cfg.C("text2"),
+                bg=cfg.C("accent") if is_active else cfg.C("card2"),
+                activeforeground="#ffffff",
+                activebackground=cfg.C("accent"),
+                relief="flat",
+                bd=0,
+                padx=7 if is_ultra_compact else 8,
+                pady=2,
+                cursor="hand2",
+                command=lambda k=f_key: self._set_filter(k),
+            ).pack(side="left")
+
+    def _render_header_wide(self):
         bar = tk.Frame(self._header, bg=cfg.C("bg"))
         bar.pack(fill="x")
 

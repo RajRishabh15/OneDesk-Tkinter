@@ -5,7 +5,7 @@ Styled for Windows native dark/light modes with pinned action bars and responsiv
 """
 
 import calendar
-from datetime import date
+from datetime import date, datetime, timedelta
 import tkinter as tk
 from .. import config as cfg
 from ..platform_helpers import apply_window_theme, center_window
@@ -56,7 +56,7 @@ def _labeled_entry(parent, label_text: str, textvariable: tk.StringVar, placehol
 
 
 def _labeled_date_entry(parent, label_text: str, textvariable: tk.StringVar) -> tk.Entry:
-    """Pack a date entry with a compact popup calendar button."""
+    """Pack a date entry with a modern, fully-responsive popup calendar button."""
     row = tk.Frame(parent, bg=cfg.C("card"))
     row.pack(fill="x", pady=(0, 10))
     tk.Label(
@@ -72,18 +72,66 @@ def _labeled_date_entry(parent, label_text: str, textvariable: tk.StringVar) -> 
     entry.pack(side="left", fill="x", expand=True, padx=(0, 6))
 
     def _open_calendar():
-        try:
-            selected = date.fromisoformat(textvariable.get().strip())
-        except ValueError:
-            selected = date.today()
-        month_state = {"year": selected.year, "month": selected.month}
+        raw_val = textvariable.get().strip()
+        selected_date = None
+        if raw_val:
+            for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%d-%m-%Y", "%d/%m/%Y"):
+                try:
+                    selected_date = datetime.strptime(raw_val, fmt).date()
+                    break
+                except ValueError:
+                    pass
+            if not selected_date:
+                try:
+                    selected_date = date.fromisoformat(raw_val)
+                except ValueError:
+                    pass
+
+        today = date.today()
+        if not selected_date:
+            selected_date = today
+
+        month_state = {"year": selected_date.year, "month": selected_date.month}
+        focused_date = {"date": selected_date}
 
         picker = tk.Toplevel(parent.winfo_toplevel())
-        picker.title("Select date")
+        picker.title("Select Date")
         picker.configure(bg=cfg.C("card"))
-        picker.resizable(False, False)
+        apply_window_theme(picker, dark=(cfg.current_theme_name() == "dark"))
         picker.transient(parent.winfo_toplevel())
-        picker.geometry(f"280x300+{calendar_btn.winfo_rootx()}+{calendar_btn.winfo_rooty() + calendar_btn.winfo_height()}")
+
+        # Responsive base dimensions and minimum size
+        picker_w = 350
+        picker_h = 410
+        picker.minsize(320, 370)
+        picker.resizable(True, True)
+
+        # Smart screen-bounded positioning:
+        picker.update_idletasks()
+        screen_w = picker.winfo_screenwidth()
+        screen_h = picker.winfo_screenheight()
+
+        btn_x = calendar_btn.winfo_rootx()
+        btn_y = calendar_btn.winfo_rooty()
+        btn_h = calendar_btn.winfo_height()
+
+        # Clamp horizontal position within screen bounds
+        pos_x = btn_x
+        if pos_x + picker_w > screen_w - 16:
+            pos_x = screen_w - picker_w - 16
+        if pos_x < 10:
+            pos_x = 10
+
+        # Vertical placement: flip above button if near screen bottom
+        pos_y = btn_y + btn_h + 4
+        if pos_y + picker_h > screen_h - 50:
+            above_y = btn_y - picker_h - 4
+            if above_y >= 10:
+                pos_y = above_y
+            else:
+                pos_y = max(10, screen_h - picker_h - 50)
+
+        picker.geometry(f"{picker_w}x{picker_h}+{pos_x}+{pos_y}")
 
         def _close():
             if picker.winfo_exists():
@@ -93,14 +141,44 @@ def _labeled_date_entry(parent, label_text: str, textvariable: tk.StringVar) -> 
             except tk.TclError:
                 pass
 
-        def _choose(day):
-            textvariable.set(date(month_state["year"], month_state["month"], day).isoformat())
+        def _choose(target_date: date):
+            textvariable.set(target_date.isoformat())
             _close()
 
+        def _select_today():
+            _choose(date.today())
+
+        def _clear_date():
+            textvariable.set("")
+            _close()
+
+        # Container hierarchy
         header = tk.Frame(picker, bg=cfg.C("card"))
-        header.pack(fill="x", padx=10, pady=8)
+        header.pack(fill="x", padx=12, pady=(10, 6))
+
         grid = tk.Frame(picker, bg=cfg.C("card"))
-        grid.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+        grid.pack(fill="both", expand=True, padx=12, pady=(0, 6))
+
+        footer = tk.Frame(picker, bg=cfg.C("card"))
+        footer.pack(fill="x", padx=12, pady=(0, 10))
+
+        # Footer action buttons
+        make_button(footer, "Today", command=_select_today, variant="secondary", font=cfg.FONT["xs_b"], padx=10, pady=3).pack(side="left")
+        make_button(footer, "Clear", command=_clear_date, variant="ghost", font=cfg.FONT["xs_b"], padx=10, pady=3).pack(side="left", padx=6)
+        make_button(footer, "Cancel", command=_close, variant="ghost", font=cfg.FONT["xs_b"], padx=10, pady=3).pack(side="right")
+
+        def _shift_month(amount: int):
+            year, month = month_state["year"], month_state["month"] + amount
+            if month < 1:
+                year, month = year - 1, 12
+            elif month > 12:
+                year, month = year + 1, 1
+            month_state.update(year=year, month=month)
+            _render()
+
+        def _shift_year(amount: int):
+            month_state["year"] += amount
+            _render()
 
         def _render():
             for child in header.winfo_children():
@@ -108,35 +186,156 @@ def _labeled_date_entry(parent, label_text: str, textvariable: tk.StringVar) -> 
             for child in grid.winfo_children():
                 child.destroy()
 
-            def _shift_month(amount):
-                year, month = month_state["year"], month_state["month"] + amount
-                if month < 1:
-                    year, month = year - 1, 12
-                elif month > 12:
-                    year, month = year + 1, 1
-                month_state.update(year=year, month=month)
-                _render()
+            # ── Header Navigation ──
+            nav_left = tk.Frame(header, bg=cfg.C("card"))
+            nav_left.pack(side="left")
+            make_button(nav_left, "«", command=lambda: _shift_year(-1), variant="ghost", font=cfg.FONT["xs_b"], padx=6, pady=2).pack(side="left", padx=(0, 2))
+            make_button(nav_left, "‹", command=lambda: _shift_month(-1), variant="ghost", font=cfg.FONT["xs_b"], padx=6, pady=2).pack(side="left")
 
-            make_button(header, "‹", command=lambda: _shift_month(-1), variant="ghost").pack(side="left")
-            tk.Label(
+            month_title = f"{calendar.month_name[month_state['month']]}  {month_state['year']}"
+            title_lbl = tk.Label(
                 header,
-                text=f"{calendar.month_name[month_state['month']]} {month_state['year']}",
-                font=cfg.FONT["sm_b"], bg=cfg.C("card"), fg=cfg.C("text"),
-            ).pack(side="left", expand=True)
-            make_button(header, "›", command=lambda: _shift_month(1), variant="ghost").pack(side="right")
+                text=month_title,
+                font=cfg.FONT["md_b"],
+                bg=cfg.C("card"),
+                fg=cfg.C("text"),
+                anchor="center",
+            )
+            title_lbl.pack(side="left", expand=True, fill="x")
 
-            for col, weekday in enumerate(("Mo", "Tu", "We", "Th", "Fr", "Sa", "Su")):
-                tk.Label(grid, text=weekday, font=cfg.FONT["xs_b"], bg=cfg.C("card"), fg=cfg.C("text2"), width=4).grid(row=0, column=col, pady=3)
-            for row_index, week in enumerate(calendar.monthcalendar(month_state["year"], month_state["month"]), start=1):
-                for col, day in enumerate(week):
-                    if day:
-                        make_button(
-                            grid, str(day), command=lambda d=day: _choose(d), variant="secondary"
-                        ).grid(row=row_index, column=col, padx=1, pady=1, sticky="nsew")
+            nav_right = tk.Frame(header, bg=cfg.C("card"))
+            nav_right.pack(side="right")
+            make_button(nav_right, "›", command=lambda: _shift_month(1), variant="ghost", font=cfg.FONT["xs_b"], padx=6, pady=2).pack(side="left", padx=(0, 2))
+            make_button(nav_right, "»", command=lambda: _shift_year(1), variant="ghost", font=cfg.FONT["xs_b"], padx=6, pady=2).pack(side="left")
+
+            # ── Grid Configuration: 7 uniform columns and 6 uniform week rows ──
+            for c in range(7):
+                grid.grid_columnconfigure(c, weight=1, uniform="cal_col")
+            grid.grid_rowconfigure(0, weight=0)
+            for r in range(1, 7):
+                grid.grid_rowconfigure(r, weight=1, uniform="cal_row")
+
+            # Weekday header labels
+            weekdays = ("Mo", "Tu", "We", "Th", "Fr", "Sa", "Su")
+            for col, wd in enumerate(weekdays):
+                is_weekend = col in (5, 6)
+                wd_fg = cfg.C("accent3") if is_weekend else cfg.C("text2")
+                tk.Label(
+                    grid,
+                    text=wd,
+                    font=cfg.FONT["xs_b"],
+                    bg=cfg.C("card"),
+                    fg=wd_fg,
+                    anchor="center",
+                ).grid(row=0, column=col, pady=(2, 6), sticky="nsew")
+
+            # Generate full 6 weeks (42 dates) for complete month visibility and stable layout
+            cal = calendar.Calendar(firstweekday=calendar.MONDAY)
+            weeks = cal.monthdatescalendar(month_state["year"], month_state["month"])
+            while len(weeks) < 6:
+                last_d = weeks[-1][-1]
+                weeks.append([last_d + timedelta(days=i) for i in range(1, 8)])
+
+            for row_idx, week in enumerate(weeks, start=1):
+                for col_idx, d in enumerate(week):
+                    is_cur_month = (d.month == month_state["month"])
+                    is_sel = (d == focused_date["date"])
+                    is_tod = (d == today)
+
+                    if is_sel:
+                        btn_bg = cfg.C("accent")
+                        btn_fg = "#ffffff"
+                        btn_ab = cfg.C("accent2")
+                        btn_font = cfg.FONT["sm_b"]
+                        btn_relief = "flat"
+                        btn_bd = 0
+                    elif is_tod:
+                        btn_bg = cfg.C("card2")
+                        btn_fg = cfg.C("accent")
+                        btn_ab = cfg.C("border")
+                        btn_font = cfg.FONT["sm_b"]
+                        btn_relief = "solid"
+                        btn_bd = 1
+                    elif is_cur_month:
+                        btn_bg = cfg.C("card2")
+                        btn_fg = cfg.C("text")
+                        btn_ab = cfg.C("border")
+                        btn_font = cfg.FONT["sm"]
+                        btn_relief = "flat"
+                        btn_bd = 0
+                    else:
+                        btn_bg = cfg.C("card")
+                        btn_fg = cfg.C("text3")
+                        btn_ab = cfg.C("card2")
+                        btn_font = cfg.FONT["xs"]
+                        btn_relief = "flat"
+                        btn_bd = 0
+
+                    btn = tk.Button(
+                        grid,
+                        text=str(d.day),
+                        command=lambda target=d: _choose(target),
+                        font=btn_font,
+                        bg=btn_bg,
+                        fg=btn_fg,
+                        activebackground=btn_ab,
+                        activeforeground=btn_fg,
+                        relief=btn_relief,
+                        bd=btn_bd,
+                        padx=2,
+                        pady=2,
+                        cursor="hand2",
+                    )
+                    btn.grid(row=row_idx, column=col_idx, padx=1, pady=1, sticky="nsew")
+
+                    # Hover effect for unselected buttons
+                    if not is_sel:
+                        def _on_enter(e, b=btn, h_bg=cfg.C("border") if is_cur_month else cfg.C("card2")):
+                            b.configure(bg=h_bg)
+                        def _on_leave(e, b=btn, orig_bg=btn_bg):
+                            b.configure(bg=orig_bg)
+                        btn.bind("<Enter>", _on_enter)
+                        btn.bind("<Leave>", _on_leave)
 
         _render()
+
+        # Keyboard and MouseWheel navigation
+        def _move_focus(delta_days: int):
+            new_date = focused_date["date"] + timedelta(days=delta_days)
+            focused_date["date"] = new_date
+            month_state["year"] = new_date.year
+            month_state["month"] = new_date.month
+            _render()
+
+        def _on_key(event):
+            if event.keysym == "Escape":
+                _close()
+            elif event.keysym in ("Return", "KP_Enter", "space"):
+                _choose(focused_date["date"])
+            elif event.keysym == "Left":
+                _move_focus(-1)
+            elif event.keysym == "Right":
+                _move_focus(1)
+            elif event.keysym == "Up":
+                _move_focus(-7)
+            elif event.keysym == "Down":
+                _move_focus(7)
+            elif event.keysym in ("Prior", "Page_Up"):
+                _shift_month(-1)
+            elif event.keysym in ("Next", "Page_Down"):
+                _shift_month(1)
+            elif event.keysym == "Home":
+                _select_today()
+
+        def _on_mousewheel(event):
+            if event.delta > 0:
+                _shift_month(-1)
+            elif event.delta < 0:
+                _shift_month(1)
+
+        picker.bind("<Key>", _on_key)
+        picker.bind("<MouseWheel>", _on_mousewheel)
         picker.protocol("WM_DELETE_WINDOW", _close)
-        picker.bind("<Escape>", lambda _event: _close())
         picker.grab_set()
         picker.focus_force()
 
@@ -173,7 +372,29 @@ def _labeled_time_entry(parent, label_text: str, textvariable: tk.StringVar) -> 
         picker.configure(bg=cfg.C("card"))
         picker.resizable(False, False)
         picker.transient(parent.winfo_toplevel())
-        picker.geometry(f"280x150+{clock_btn.winfo_rootx()}+{clock_btn.winfo_rooty() + clock_btn.winfo_height()}")
+        picker_w, picker_h = 290, 160
+        screen_w = picker.winfo_screenwidth()
+        screen_h = picker.winfo_screenheight()
+        bx = clock_btn.winfo_rootx()
+        by = clock_btn.winfo_rooty()
+        bh = clock_btn.winfo_height()
+
+        pos_x = bx
+        if pos_x + picker_w > screen_w - 16:
+            pos_x = screen_w - picker_w - 16
+        if pos_x < 10:
+            pos_x = 10
+
+        pos_y = by + bh + 4
+        if pos_y + picker_h > screen_h - 50:
+            above_y = by - picker_h - 4
+            if above_y >= 10:
+                pos_y = above_y
+            else:
+                pos_y = max(10, screen_h - picker_h - 50)
+
+        picker.geometry(f"{picker_w}x{picker_h}+{pos_x}+{pos_y}")
+        apply_window_theme(picker, dark=(cfg.current_theme_name() == "dark"))
 
         def _close():
             if picker.winfo_exists():
