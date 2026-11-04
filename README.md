@@ -2,7 +2,7 @@
 
 A modern, high-performance personal productivity desktop dashboard built with **Python 3.13** and **Tkinter**. OneDesk brings notes, tasks, calendar events, and account management into a single, cohesive desktop experience with bespoke themes and native Windows title bar integration.
 
-Supports a **hybrid persistence layer**: connect to an optional **MySQL** backend with connection pooling, or run completely offline with automatic zero-configuration **JSON storage**.
+Uses **MySQL 8.x** with connection pooling for accounts and productivity data. JSON remains available for local preferences and backup/import files.
 
 ---
 
@@ -12,8 +12,8 @@ Supports a **hybrid persistence layer**: connect to an optional **MySQL** backen
 - **Segmented Auth Mode**: Symmetrical, high-contrast segmented control to switch seamlessly between **Sign In** and **Create Account**.
 - **Password Visibility Toggle**: Inline `👁 Show` / `🔒 Hide` button for password masking and unmasking.
 - **Top Theme Selector**: Change the application theme directly from the login/signup screen before signing in.
-- **Instant Demo Sign-in**: One-click demo login (`Alex Rivera`) seeded with realistic sample data for instant exploration.
-- **Security**: Passwords hashed with SHA-256 before storage; parameterised queries protect against SQL injection.
+- **Instant Demo Sign-in**: One-click sign-in to the shared demo account (`Alex Rivera`).
+- **Security**: Passwords are stored using Argon2id; parameterised queries protect against SQL injection.
 
 ### 📊 Dashboard (Revamped Fluid Design)
 - **Fluid Greeting Hero**: Features a circular user profile avatar with ring border, welcoming `"Welcome back, [Name] 👋"` in 22pt bold typography, live date, and contextual time-of-day focus indicator (Morning Focus / Afternoon Momentum / Evening Wrap-up). Clicking the avatar navigates directly to Settings.
@@ -89,9 +89,9 @@ Supports a **hybrid persistence layer**: connect to an optional **MySQL** backen
 | **GUI Framework** | Tkinter (Python standard library) | Native cross-platform desktop UI components & custom Canvas widgets |
 | **AI Integration** | Google Gemini REST API (`urllib.request`) | Fast natural-language action extraction with zero extra pip dependencies |
 | **Database** | MySQL 8.x (`mysql-connector-python`) | Connection pooling, relational storage, and parameterised queries |
-| **Fallback Persistence** | JSON (`~/.onedesk_store.json`) | Zero-setup local file storage with automatic fallback |
-| **Configuration** | `configparser` (`config.ini`) & `.env` | Database host, credentials, and Gemini API keys |
-| **Security** | Python `hashlib` | SHA-256 password hashing |
+| **Local Preferences & Backups** | JSON | Theme and app preferences, plus backup/import files |
+| **Configuration** | `.env.local` and environment variables | MySQL connection settings (`DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`) |
+| **Security** | `argon2-cffi` | Argon2id password hashing |
 | **Charts & Visuals** | `matplotlib` (TkAgg backend) | Embedded data plotting and analytics components |
 | **Image Handling** | `Pillow` (PIL) | High-DPI avatar circular cropping, masking, and icon asset handling |
 | **Platform APIs** | Windows DWM API (`ctypes`) | Windows native title bar theming and DPI awareness |
@@ -103,18 +103,19 @@ Supports a **hybrid persistence layer**: connect to an optional **MySQL** backen
 ```
 onedesk-tkinter/
 ├── main.py                     # Application entry point: root window, view routing, lifecycle
-├── config.ini                  # MySQL database configuration (host, user, password, database)
-├── setup_db.sql                # SQL schema initialization script (users, notes, tasks, events)
-├── requirements.txt            # Python dependencies (mysql-connector, matplotlib, Pillow)
+├── .env.example                # Sample MySQL environment configuration
+├── setup_db.sql                # MySQL schema initialization script
+├── requirements.txt            # Python dependencies
+├── docs/LOCAL_SETUP.md         # Full local installation and configuration guide
 ├── README.md                   # Project documentation
 ├── PROJECT_EXPLANATION.md      # Comprehensive deep-dive architecture & component explanation
 └── onedesk/
     ├── __init__.py
     ├── config.py               # Design tokens: 4 theme palettes, typography, dimensions
     ├── db.py                   # MySQL connection pool, health check, and query helpers
-    ├── auth.py                 # Session manager: MySQL auth with automatic JSON fallback
-    ├── state.py                # Reactive DataStore with pub/sub listener architecture
-    ├── storage.py              # Local JSON persistence (~/.onedesk_store.json) & sample seeders
+    ├── auth.py                 # MySQL authentication and profile management
+    ├── state.py                # MySQL-backed DataStore with UI-compatible records
+    ├── storage.py              # Local preferences and backup/import helpers
     ├── importers.py            # Multi-format parsers for importing Notes, Tasks, and Events
     ├── ai_service.py           # Google Gemini AI action planner & offline smart NLP engine
     ├── ai_actions.py           # Validates and executes planned actions on DataStore
@@ -143,54 +144,18 @@ onedesk-tkinter/
 
 ## Getting Started
 
-### 1. Prerequisites
-- Python 3.10+ (tested on Python 3.13)
-- Windows 10/11 recommended for native title bar styling
+OneDesk requires Python 3.13 and a reachable MySQL 8.x database for sign-in and workspace data. Follow the complete [local setup guide](docs/LOCAL_SETUP.md) to install dependencies, create the database, configure `.env.local`, verify the connection, and launch the app.
 
-### 2. Installation
-Clone the repository and install the dependencies:
-```bash
-git clone https://github.com/RajRishabh15/OneDesk-Tkinter.git
-cd OneDesk-Tkinter
-pip install -r requirements.txt
-```
+The short version is:
 
-### 3. Launching the App
-Run the application:
-```bash
+```shell
+python -m pip install -r requirements.txt
+mysql -u root -p < setup_db.sql
+python check_db_connection.py
 python main.py
 ```
 
-Click **Instant Sign-in →** on the authentication screen to load the demo workspace immediately.
-
----
-
-## Database Configuration (Optional MySQL)
-
-OneDesk includes dual-storage capability. By default, it operates **offline with local JSON storage** (`~/.onedesk_store.json`). If you wish to use a MySQL database backend:
-
-### Step 1: Set up MySQL Database
-Execute the database setup script in MySQL:
-```bash
-mysql -u root -p < setup_db.sql
-```
-This creates the `onedesk` database and tables (`users`, `notes`, `tasks`, `events`) with foreign keys and cascading deletes.
-
-### Step 2: Configure Credentials
-Edit [`config.ini`](file:///r:/onedesk-tkinter/config.ini) in the project root:
-```ini
-[mysql]
-host     = localhost
-port     = 3306
-user     = root
-password = YOUR_ACTUAL_PASSWORD
-database = onedesk
-```
-
-### Step 3: Run OneDesk
-Start `main.py`. OneDesk automatically tests the database connection via `onedesk/db.py`:
-- **If connected**: User accounts and authentication sync with MySQL.
-- **If disconnected / offline**: OneDesk seamlessly falls back to the JSON file store without crashing or interrupting the user.
+Create `.env.local` from `.env.example` and set database credentials before running the connection check. Do not use a root account for the app connection. The sign-in screen supports account creation and demo sign-in.
 
 ---
 

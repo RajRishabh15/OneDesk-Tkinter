@@ -11,13 +11,13 @@ This document provides a complete, in-depth explanation of the **OneDesk** deskt
    - [Architectural Paradigm](#architectural-paradigm)
    - [System Context & Component Diagram](#system-context--component-diagram)
    - [Data Flow & Reactive State Pipeline](#data-flow--reactive-state-pipeline)
-   - [Hybrid Persistence Pipeline](#hybrid-persistence-pipeline)
+   - [MySQL Persistence Pipeline](#mysql-persistence-pipeline)
 3. [Project Directory & File Structure](#3-project-directory--file-structure)
 4. [Core Subsystems & Engine Architecture](#4-core-subsystems--engine-architecture)
    - [4.1 Application Orchestrator (`main.py`)](#41-application-orchestrator-mainpy)
    - [4.2 Design System & Theming Engine (`onedesk/config.py`)](#42-design-system--theming-engine-onedeskconfigpy)
    - [4.3 Reactive Data Store & State Engine (`onedesk/state.py`)](#43-reactive-data-store--state-engine-onedeskstatepy)
-   - [4.4 Hybrid Storage Layer (`onedesk/storage.py`)](#44-hybrid-storage-layer-onedeskstoragepy)
+   - [4.4 Local Settings and Backup Layer (`onedesk/storage.py`)](#44-local-settings-and-backup-layer-onedeskstoragepy)
    - [4.5 Relational Database Layer (`onedesk/db.py` & `setup_db.sql`)](#45-relational-database-layer-onedeskdbpy--setup_dbsql)
    - [4.6 Authentication & Profile Engine (`onedesk/auth.py`)](#46-authentication--profile-engine-onedeskauthpy)
    - [4.7 Windows DWM & Platform Enhancements (`onedesk/platform_helpers.py`)](#47-windows-dwm--platform-enhancements-onedeskplatform_helperspy)
@@ -41,8 +41,7 @@ This document provides a complete, in-depth explanation of the **OneDesk** deskt
    - [Task Creation, Kanban Drag-and-Drop, & Direct Deletion](#task-creation-kanban-drag-and-drop--direct-deletion)
    - [Theme Switching & Native DWM Re-rendering](#theme-switching--native-dwm-re-rendering)
 8. [Setup, Configuration & Operating Modes](#8-setup-configuration--operating-modes)
-   - [Offline Mode (Zero Configuration)](#offline-mode-zero-configuration)
-   - [MySQL Database Backend Configuration](#mysql-database-backend-configuration)
+   - [Local installation and MySQL configuration](#local-installation-and-mysql-configuration)
 9. [Developer Extension Guide](#9-developer-extension-guide)
 
 ---
@@ -147,21 +146,19 @@ The application state is strictly centralized in `DataStore` ([onedesk/state.py]
 3. **Notification**: The store iterates through all registered observer callbacks in `_listeners` and executes `_notify()`.
 4. **Reactive Re-render**: Active views (`DashboardView`, `TasksView`, `CalendarView`, `NotesView`) subscribed via `store.subscribe(self._refresh)` instantly re-render their data without requiring manual parent-child state passing.
 
-### Hybrid Persistence Pipeline
+### MySQL Persistence Pipeline
 
 ```mermaid
 sequenceDiagram
     participant User
     participant View as Dashboard / Tasks View
     participant Store as DataStore (state.py)
-    participant Storage as storage.py / db.py
-    participant Disk as Local JSON / MySQL
+    participant DB as MySQL database
 
     User->>View: Click Action (e.g., Delete Task or Drag Kanban)
     View->>Store: store.delete_task(id) / store.set_task_status(id, status)
     Store->>Store: Mutate internal memory collections
-    Store->>Storage: _persist()
-    Storage->>Disk: Write atomic JSON or execute SQL parameterised queries
+    Store->>DB: Execute scoped parameterised query
     Store->>View: _notify() triggers all subscribed callbacks
     View->>User: UI updates in real-time with smooth state transition
 ```
@@ -174,9 +171,10 @@ sequenceDiagram
 onedesk-tkinter/
 │
 ├── main.py                     # Entry point, Window initialization, View router, DWM themes
-├── config.ini                  # MySQL database credentials and connection parameters
-├── setup_db.sql                # Complete SQL schema initialization script
-├── requirements.txt            # Python dependencies (mysql-connector-python, Pillow, matplotlib)
+├── .env.example                # Sample MySQL environment configuration
+├── setup_db.sql                # MySQL schema initialization script
+├── requirements.txt            # Python dependencies (mysql-connector-python, argon2-cffi, Pillow, matplotlib)
+├── docs/LOCAL_SETUP.md         # Local installation and database configuration guide
 ├── README.md                   # User-facing summary and highlights
 ├── PROJECT_EXPLANATION.md       # Comprehensive architectural and technical guide
 │
@@ -184,8 +182,8 @@ onedesk-tkinter/
     ├── __init__.py             # Package marker
     ├── config.py               # Design tokens, themes (Dark, Light, Rose, Aqua), fonts
     ├── state.py                # Reactive DataStore with pub/sub listener architecture
-    ├── storage.py              # Local JSON file persistence, mock data seeders, backup export
-    ├── auth.py                 # User authentication, session management, profile & avatars
+├── storage.py              # Local preferences and backup/import helpers
+    ├── auth.py                 # MySQL user authentication, session management, profile & avatars
     ├── db.py                   # MySQL connection pooling, parameterised queries, health check
     ├── importers.py            # Multi-format parsers for importing Notes, Tasks, and Events
     ├── platform_helpers.py     # Windows DWM titlebar dark mode, DPI scaling, window centering
@@ -258,21 +256,18 @@ Centralized design token repository in [onedesk/config.py](file:///r:/onedesk-tk
 - `today_events`: Automatically filters and sorts events scheduled for today by timestamp.
 - `completion_pct`: Computes percentage integer (`0% - 100%`) for visual progress gauges.
 
-### 4.4 Hybrid Storage Layer (`onedesk/storage.py`)
-Handles disk serialization into `~/.onedesk_store.json`:
-- **Atomic File Writes**: Prevents file corruption during unexpected application terminations by serializing to JSON and writing atomically.
-- **Mock Data Seeders**: When first launched, automatically seeds realistic tasks, notes, and calendar events for instant exploration.
-- **Backup System**: `export_backup()` bundles notes, tasks, and events into a timestamped portable JSON structure; `import_backup()` validates and restores state.
+### 4.4 Local Settings and Backup Layer (`onedesk/storage.py`)
+JSON is used for local preferences and backup/import files. Accounts and productivity records are stored in MySQL through the authentication and state modules. Backup export/import validates the portable JSON data and applies productivity records to the active MySQL account.
 
 ### 4.5 Relational Database Layer (`onedesk/db.py` & `setup_db.sql`)
 - **Connection Pooling**: Utilizes `mysql.connector.pooling.MySQLConnectionPool(pool_name="onedesk_pool", pool_size=5)` to reuse connections efficiently across queries.
-- **Graceful Fallback**: `db.is_available()` performs a non-blocking test connection on boot. If MySQL is unavailable (e.g. offline laptop), OneDesk automatically falls back to JSON storage without crashing.
+- **Configuration**: Reads `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and `DB_PASSWORD` from process environment variables or the project-root `.env.local` file. `check_db_connection.py` reports connection and server version status.
 - **Security**: All SQL statements use parameterised format dictionaries (`%(param)s`), eliminating SQL injection vulnerabilities.
 
 ### 4.6 Authentication & Profile Engine (`onedesk/auth.py`)
-- **Dual Authentication**: Attempts MySQL query first; falls back to `storage.py` users list.
-- **Password Security**: Passwords are never stored in plain text; SHA-256 digests (`hashlib.sha256`) are computed and matched.
-- **Demo User**: Instant one-click login for `alex@lifeos.workspace` with pre-configured mock data.
+- **MySQL Authentication**: Account creation, login, and profile updates use the MySQL database; account authentication does not fall back to a local JSON user list.
+- **Password Security**: New passwords are stored using Argon2id via `argon2-cffi`. A successful login against a supported legacy SHA-256 record upgrades it to Argon2id.
+- **Demo User**: Instant one-click login for `alex@lifeos.workspace`; the demo account is stored in MySQL.
 - **Profile & Avatar Management**:
   - Holds `avatar_path` pointing to user avatar images.
   - Updates profile metadata in session and propagates changes to active persistent storage.
@@ -445,12 +440,12 @@ sequenceDiagram
         Main->>AuthView: Mount AuthView
         User->>AuthView: Enters credentials / clicks Demo Sign-in
         AuthView->>AuthMgr: auth.login(email, pass) / demo_login()
-        AuthMgr->>AuthMgr: Validate SHA-256 hash or seed Demo
+        AuthMgr->>AuthMgr: Verify Argon2id hash or ensure demo account
         AuthMgr-->>AuthView: Success
         AuthView->>Main: on_success() callback
     end
     Main->>DWM: apply_window_theme(dark_mode)
-    Main->>Store: Initialize DataStore (load JSON/DB)
+    Main->>Store: Set authenticated user and load MySQL records
     Main->>Main: _show_main() -> Mount Navbar, Sidebar, DashboardView
 ```
 
@@ -530,43 +525,10 @@ sequenceDiagram
 
 ## 8. Setup, Configuration & Operating Modes
 
-### Offline Mode (Zero Configuration)
-OneDesk runs offline out of the box. No database installation or external services are required:
-```bash
-# Clone the repository
-git clone https://github.com/RajRishabh15/OneDesk-Tkinter.git
-cd OneDesk-Tkinter
+### Local installation and MySQL configuration
+OneDesk requires Python 3.13 and a reachable MySQL 8.x database for accounts and productivity records. The step-by-step installation, `.env.local` configuration, database setup, connection check, and troubleshooting instructions are in [docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md).
 
-# Install Python requirements
-pip install -r requirements.txt
-
-# Run OneDesk
-python main.py
-```
-*Data will be saved automatically to `~/.onedesk_store.json`.*
-
-### MySQL Database Backend Configuration
-To connect OneDesk to a relational database backend:
-
-1. **Initialize the Database**:
-   ```bash
-   mysql -u root -p < setup_db.sql
-   ```
-2. **Configure Connection Parameters**:
-   Edit [config.ini](file:///r:/onedesk-tkinter/config.ini) in the project root:
-   ```ini
-   [mysql]
-   host = localhost
-   port = 3306
-   user = root
-   password = your_password_here
-   database = onedesk
-   ```
-3. **Launch OneDesk**:
-   ```bash
-   python main.py
-   ```
-   *OneDesk will automatically detect MySQL via `onedesk/db.py` and synchronize users, tasks, notes, and events.*
+In brief, install the requirements, initialize the schema with `mysql -u root -p < setup_db.sql`, copy `.env.example` to `.env.local` and fill in connection settings, run `python check_db_connection.py`, then start with `python main.py`. JSON is used for local preferences and backup/import files; it is not an offline replacement for MySQL productivity persistence.
 
 ---
 
